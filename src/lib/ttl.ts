@@ -57,13 +57,51 @@ export interface DemoSession {
   conceptCount: number;
 }
 
+export interface ChatMessage {
+  position: number;
+  speaker: 'user' | 'agent';
+  body: string;
+  hint?: string;
+  generatedAt?: string;
+  session: string;
+}
+
+export interface ShaclEntry {
+  shape: string;            // CURIE of shape IRI
+  status: 'pass' | 'warn' | 'fail';
+  detail: string;
+  label?: string;
+}
+
+export type FocusTripleKind = 'type' | 'literal' | 'iri';
+
+export interface FocusTriple {
+  predicate: string;        // CURIE-ish, e.g. "skos:prefLabel"
+  object: string;           // display string
+  kind: FocusTripleKind;
+}
+
+export interface Backlink {
+  from: string;             // node id
+  fromLabel: string;
+  predicate: string;        // CURIE
+  pretty: string;
+  kind: NodeKind;
+  via?: string;             // intermediate node label for 2-hop chains
+}
+
 export interface DemoGraph {
   nodes: GraphNode[];
   edges: GraphEdge[];
   view: DemoView;
   sessions: DemoSession[];
+  chat: ChatMessage[];
+  shacl: ShaclEntry[];
   activeSession: string;    // sessions whose generatedBy is "highlighted"
+  focusId: string;          // id of the central node for the view
   pretty: (predicate: string) => string;
+  triplesFor: (id: string) => FocusTriple[];
+  backlinksFor: (id: string) => Backlink[];
   raw: string;              // verbatim TTL source
   source: string;           // human-friendly filename
   tripleCount: number;      // number of parsed quads
@@ -305,18 +343,129 @@ export function loadDemoGraph(): DemoGraph {
   }
   sessions.sort((a, b) => b.startedAt.localeCompare(a.startedAt));
 
+  // ── chat messages ────────────────────────────────────────
+  const chat: ChatMessage[] = [];
+  for (const [subj, qs] of store.bySubject) {
+    const types = qs.filter((q) => q.predicate.value === PREFIXES.rdf + 'type').map((q) => q.object.value);
+    if (!types.includes(PREFIXES.aleph + 'ChatMessage')) continue;
+    const speakerRaw = store.oneObject(subj, 'aleph:speaker')?.value ?? 'agent';
+    const speaker: ChatMessage['speaker'] = speakerRaw === 'user' ? 'user' : 'agent';
+    const sessionIri = store.oneObject(subj, 'prov:wasGeneratedBy')?.value;
+    chat.push({
+      position: Number(store.oneObject(subj, 'aleph:position')?.value ?? 0),
+      speaker,
+      body: store.oneObject(subj, 'aleph:body')?.value ?? '',
+      hint: store.oneObject(subj, 'aleph:hint')?.value,
+      generatedAt: store.oneObject(subj, 'prov:generatedAtTime')?.value,
+      session: sessionIri ? localName(sessionIri) : '',
+    });
+  }
+  chat.sort((a, b) => a.position - b.position);
+
+  // ── SHACL results ────────────────────────────────────────
+  const shacl: ShaclEntry[] = [];
+  for (const [subj, qs] of store.bySubject) {
+    const types = qs.filter((q) => q.predicate.value === PREFIXES.rdf + 'type').map((q) => q.object.value);
+    if (!types.includes(PREFIXES.aleph + 'ShaclResult')) continue;
+    for (const r of store.objects(subj, 'aleph:result')) {
+      const shapeIri = store.oneObject(r.value, 'aleph:shape')?.value;
+      const status = (store.oneObject(r.value, 'aleph:status')?.value ?? 'pass') as ShaclEntry['status'];
+      const detail = store.oneObject(r.value, 'aleph:detail')?.value ?? '';
+      const labelOverride = store.oneObject(r.value, 'rdfs:label')?.value;
+      shacl.push({
+        shape: shapeIri ? localName(shapeIri) : '',
+        status,
+        detail,
+        label: labelOverride,
+      });
+    }
+  }
+
+  // ── focus subject (central node for views) ───────────────
+  const focusId = view.path[0] ?? [...nodeMap.values()][0]?.id ?? '';
+  const focusIri = focusId ? PREFIXES[''] + focusId : '';
+
+  const renderObject = (term: Term): { object: string; kind: FocusTripleKind } => {
+    if (term.termType === 'Literal') {
+      const lit = term as Term & { language?: string; datatype?: Term };
+      const lang = lit.language;
+      const dt = lit.datatype?.value;
+      const v = JSON.stringify(term.value);
+      if (lang) return { object: `${v}@${lang}`, kind: 'literal' };
+      if (dt && dt !== PREFIXES.xsd + 'string') return { object: `${v}^^${shrink(dt)}`, kind: 'literal' };
+      return { object: term.value, kind: 'literal' };
+    }
+    return { object: shrink(term.value), kind: 'iri' };
+  };
+
+  const triplesFor = (id: string): FocusTriple[] => {
+    const iri = PREFIXES[''] + id;
+    const out: FocusTriple[] = [];
+    for (const q of store.bySubject.get(iri) ?? []) {
+      const pCurie = shrink(q.predicate.value);
+      // hide layout-only hints from the triples view
+      if (pCurie === 'aleph:layoutX' || pCurie === 'aleph:layoutY') continue;
+      if (q.predicate.value === PREFIXES.rdf + 'type') {
+        out.push({ predicate: 'a', object: shrink(q.object.value), kind: 'type' });
+      } else {
+        const { object, kind } = renderObject(q.object);
+        out.push({ predicate: pCurie, object, kind });
+      }
+    }
+    return out;
+  };
+
+  const backlinksFor = (id: string): Backlink[] => {
+    const direct = edges
+      .filter((e) => e.o === id)
+      .map<Backlink>((e) => {
+        const src = nodeMap.get(PREFIXES[''] + e.s);
+        return {
+          from: e.s,
+          fromLabel: src?.label ?? e.s,
+          predicate: e.predicate,
+          pretty: e.pretty,
+          kind: src?.kind ?? 'concept',
+        };
+      });
+
+    // 2-hop chains via skos:broader → skos:broader or skos:related → skos:broader
+    const indirect: Backlink[] = [];
+    for (const mid of edges.filter((e) => e.o === id && e.predicate === 'skos:broader')) {
+      for (const leaf of edges.filter((e) => e.o === mid.s && e.predicate === 'skos:broader')) {
+        const src = nodeMap.get(PREFIXES[''] + leaf.s);
+        const via = nodeMap.get(PREFIXES[''] + mid.s);
+        indirect.push({
+          from: leaf.s,
+          fromLabel: src?.label ?? leaf.s,
+          predicate: 'skos:broader',
+          pretty: 'broader',
+          kind: src?.kind ?? 'concept',
+          via: via?.label,
+        });
+      }
+    }
+    return [...direct, ...indirect];
+  };
+
   const graph: DemoGraph = {
     nodes: [...nodeMap.values()],
     edges,
     view,
     sessions,
+    chat,
+    shacl,
     activeSession: 'Session_042',
+    focusId,
     pretty: (p) => PRETTY_PREDICATE[shrink(p)] ?? shrink(p),
+    triplesFor,
+    backlinksFor,
     raw: demoTtl,
     source: DEMO_TTL_SOURCE,
     tripleCount: quads.length,
     byteSize: new TextEncoder().encode(demoTtl).length,
   };
+  void focusIri;
   cached = graph;
   return graph;
 }

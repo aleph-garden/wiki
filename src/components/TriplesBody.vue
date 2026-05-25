@@ -3,6 +3,7 @@ import { computed } from 'vue';
 import type { Palette } from '../palette';
 import { loadDemoGraph } from '../lib/ttl';
 import ConceptHeader from './ConceptHeader.vue';
+import PageLayout from './PageLayout.vue';
 
 const props = defineProps<{
   palette: Palette;
@@ -74,19 +75,8 @@ const colorOf = (cls: Tok): string => {
 </script>
 
 <template>
-  <section
-    :style="{
-      width: width + 'px',
-      padding: '20px 28px',
-      position: 'relative',
-      background: palette.bg,
-      overflow: 'hidden',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '12px',
-    }"
-  >
-    <ConceptHeader :palette="palette" :font-mono="fontMono" font-prose='"Fraunces", serif' />
+  <PageLayout :palette="palette" :width="width" :dense="dense">
+    <ConceptHeader :palette="palette" :font-mono="fontMono" :font-prose="fontProse" />
     <div
       :style="{
         flex: 1,

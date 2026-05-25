@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import type { Palette } from '../palette';
-import { ALEPH_NODES, ALEPH_EDGES, type NodeKind } from '../data';
+import { loadDemoGraph, type NodeKind } from '../lib/ttl';
 
 const props = defineProps<{
   palette: Palette;
@@ -9,6 +9,8 @@ const props = defineProps<{
   fontMono: string;
   hilite: string;
 }>();
+
+const graph = loadDemoGraph();
 
 const W = 800, H = 248;
 const cx = W / 2, cy = H / 2;
@@ -25,9 +27,9 @@ function kindColor(k: NodeKind) {
 }
 
 const edges = computed(() =>
-  ALEPH_EDGES.map((e) => {
-    const a = ALEPH_NODES.find((n) => n.id === e.s);
-    const b = ALEPH_NODES.find((n) => n.id === e.o);
+  graph.edges.map((e) => {
+    const a = graph.nodes.find((n) => n.id === e.s);
+    const b = graph.nodes.find((n) => n.id === e.o);
     if (!a || !b) return null;
     const [x1, y1] = project(a.x, a.y);
     const [x2, y2] = project(b.x, b.y);
@@ -35,13 +37,13 @@ const edges = computed(() =>
     const highlit = e.s === props.hilite || e.o === props.hilite;
     return { e, x1, y1, x2, y2, mx, my, highlit };
   }).filter(Boolean) as Array<{
-    e: typeof ALEPH_EDGES[number]; x1: number; y1: number; x2: number; y2: number;
+    e: typeof graph.edges[number]; x1: number; y1: number; x2: number; y2: number;
     mx: number; my: number; highlit: boolean;
   }>
 );
 
 const nodes = computed(() =>
-  ALEPH_NODES.map((n) => {
+  graph.nodes.map((n) => {
     const [x, y] = project(n.x, n.y);
     const r = 4 + n.importance * 7;
     const isCenter = n.id === props.hilite;
@@ -70,7 +72,7 @@ const layouts = ['force', 'radial', 'tree', 'timeline'];
           text-anchor="middle"
           :opacity="item.highlit ? 0.95 : 0.7"
           :style="{ paintOrder: 'stroke', stroke: palette.panel, strokeWidth: '3px' }"
-        >{{ item.e.p }}</text>
+        >{{ item.e.predicate }}</text>
       </g>
 
       <g v-for="item in nodes" :key="item.n.id">

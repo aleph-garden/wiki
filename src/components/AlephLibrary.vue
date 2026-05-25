@@ -2,7 +2,7 @@
 import { computed } from 'vue';
 import type { Palette } from '../palette';
 import type { Mode } from './types';
-import { ALEPH_SESSIONS } from '../data';
+import { loadDemoGraph } from '../lib/ttl';
 
 const props = defineProps<{
   palette: Palette;
@@ -13,36 +13,52 @@ const props = defineProps<{
   mode: Mode;
 }>();
 
+const graph = loadDemoGraph();
+
 const isPoint = computed(() => props.mode === 'point');
 
-const trail = ['Mind', 'Mathematics', 'Strategy & Games', 'Game Theory'];
+const trail = computed(() => {
+  const focus = graph.nodes.find((n) => n.id === graph.focusId);
+  const upper = graph.view.trail.length ? [...graph.view.trail].reverse() : [];
+  return focus ? [...upper, focus.label] : upper;
+});
 
 interface PredRow { p: string; n: number; active?: boolean }
-const predicates: PredRow[] = [
-  { p: 'skos:broader',         n: 5, active: true },
-  { p: 'skos:related',         n: 3 },
-  { p: 'aleph:derivedFrom',    n: 2 },
-  { p: 'prov:wasAttributedTo', n: 2 },
-  { p: 'aleph:exemplifies',    n: 1 },
-  { p: 'aleph:requires',       n: 1 },
-];
+const predicates = computed<PredRow[]>(() => {
+  const counts = new Map<string, number>();
+  for (const e of graph.edges) counts.set(e.predicate, (counts.get(e.predicate) ?? 0) + 1);
+  const focusEdge = graph.edges.find((e) => e.s === graph.focusId || e.o === graph.focusId);
+  const activeP = focusEdge?.predicate;
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([p, n]) => ({ p, n, active: p === activeP }));
+});
 
 interface TreeRow { icon: string; label: string; count?: string; active?: boolean; depth?: number }
-const treeRows: TreeRow[] = [
-  { icon: '◇', label: 'skos:Concept', count: '287' },
-  { icon: '◇', label: 'aleph:ImportantConcept', count: '42', depth: 1 },
-  { icon: '●', label: 'Game Theory', active: true, count: '14', depth: 2 },
-  { icon: '◆', label: 'Information Theory', count: '9', depth: 2 },
-  { icon: '◆', label: 'Evolution', count: '12', depth: 2 },
-  { icon: '◆', label: 'Rationality', count: '7', depth: 2 },
-  { icon: '○', label: 'foaf:Person', count: '89' },
-  { icon: '◇', label: 'von Neumann', depth: 1 },
-  { icon: '◇', label: 'John Nash', depth: 1 },
-  { icon: '◇', label: 'Claude Shannon', depth: 1 },
-  { icon: '✦', label: 'schema:Event', count: '37' },
-];
+const treeRows = computed<TreeRow[]>(() => {
+  const concepts = graph.nodes.filter((n) => n.kind === 'concept');
+  const people   = graph.nodes.filter((n) => n.kind === 'person');
+  const events   = graph.nodes.filter((n) => n.kind === 'event');
+  const important = concepts.filter((n) => n.importance >= 0.7);
 
-const sessions = ALEPH_SESSIONS.slice(0, 4);
+  const rows: TreeRow[] = [
+    { icon: '◇', label: 'aleph:Concept', count: String(concepts.length) },
+    { icon: '◇', label: 'aleph:ImportantConcept', count: String(important.length), depth: 1 },
+    ...important.map<TreeRow>((n) => ({
+      icon: n.id === graph.focusId ? '●' : '◆',
+      label: n.label,
+      active: n.id === graph.focusId,
+      depth: 2,
+    })),
+    { icon: '○', label: 'aleph:Person', count: String(people.length) },
+    ...people.map<TreeRow>((n) => ({ icon: '◇', label: n.label, depth: 1 })),
+    { icon: '✦', label: 'aleph:Event', count: String(events.length) },
+    ...events.map<TreeRow>((n) => ({ icon: '◇', label: n.label, depth: 1 })),
+  ];
+  return rows;
+});
+
+const sessions = computed(() => graph.sessions.slice(0, 4));
 </script>
 
 <template>
@@ -266,7 +282,7 @@ const sessions = ALEPH_SESSIONS.slice(0, 4);
             }"
           >
             <span>{{ s.id }}</span>
-            <span :style="{ color: palette.mute }">{{ s.concepts }}</span>
+            <span :style="{ color: palette.mute }">{{ s.conceptCount }}</span>
           </div>
           <div
             :style="{

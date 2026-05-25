@@ -2,7 +2,7 @@
 import { computed } from 'vue';
 import type { Palette } from '../palette';
 import { FONT_MONO as MONO, FONT_SERIF as SERIF } from '../palette';
-import { ALEPH_CHAT } from '../data';
+import { loadDemoGraph } from '../lib/ttl';
 
 const props = defineProps<{
   palette: Palette;
@@ -14,7 +14,8 @@ const positionStyle = computed(() =>
   props.side === 'left' ? { left: '80px' } : { right: '24px' }
 );
 
-const recent = ALEPH_CHAT.slice(-4);
+const graph = loadDemoGraph();
+const recent = graph.chat.slice(-4);
 </script>
 
 <template>
@@ -65,7 +66,7 @@ const recent = ALEPH_CHAT.slice(-4);
         v-for="(m, i) in recent"
         :key="i"
         :style="{
-          borderLeft: `1px solid ${m.who === 'user' ? palette.halo : palette.rule}`,
+          borderLeft: `1px solid ${m.speaker === 'user' ? palette.halo : palette.rule}`,
           paddingLeft: '12px',
         }"
       >
@@ -74,12 +75,12 @@ const recent = ALEPH_CHAT.slice(-4);
             fontSize: '9px',
             letterSpacing: '1.4px',
             textTransform: 'uppercase',
-            color: m.who === 'user' ? palette.halo : palette.mute,
+            color: m.speaker === 'user' ? palette.halo : palette.mute,
             fontFamily: MONO,
             marginBottom: '4px',
           }"
         >
-          {{ m.who === 'user' ? 'you' : 'narrator' }}
+          {{ m.speaker === 'user' ? 'you' : 'narrator' }}
           <span v-if="m.hint" style="margin-left: 8px; opacity: 0.6">· {{ m.hint }}</span>
         </div>
         <div
@@ -88,10 +89,10 @@ const recent = ALEPH_CHAT.slice(-4);
             lineHeight: 1.5,
             color: palette.fg,
             fontFamily: SERIF,
-            fontStyle: m.who === 'user' ? 'normal' : 'italic',
-            opacity: m.who === 'user' ? 0.95 : 0.85,
+            fontStyle: m.speaker === 'user' ? 'normal' : 'italic',
+            opacity: m.speaker === 'user' ? 0.95 : 0.85,
           }"
-        >{{ m.text }}</div>
+        >{{ m.body }}</div>
       </div>
     </div>
   </aside>

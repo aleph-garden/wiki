@@ -2,8 +2,9 @@
 import { computed } from 'vue';
 import type { Palette } from '../palette';
 import { FONT_UI as SANS } from '../palette';
-import { ALEPH_TRIPLES, type AlephTriple } from '../data';
+import { loadDemoGraph, type FocusTriple, type Backlink, type NodeKind } from '../lib/ttl';
 import ConceptHeader from './ConceptHeader.vue';
+import PageLayout from './PageLayout.vue';
 import Schematic from './Schematic.vue';
 
 const props = defineProps<{
@@ -16,70 +17,58 @@ const props = defineProps<{
   dense: boolean;
 }>();
 
-const pad = computed(() => props.dense ? '18px 24px' : '22px 32px');
+const graph = loadDemoGraph();
 
-interface Group { label: string; items: AlephTriple[] }
+const focusTriples = computed(() => graph.triplesFor(graph.focusId));
+
+interface Group { label: string; items: FocusTriple[] }
+
+const IDENTITY = new Set(['a', 'skos:prefLabel', 'skos:altLabel', 'skos:definition']);
+const MEASUREMENT = new Set(['aleph:perceivedImportance']);
+
 const groups = computed<Group[]>(() => {
-  const filters: Array<{ label: string; fn: (t: AlephTriple) => boolean }> = [
-    { label: 'identity',     fn: (t) => t.kind === 'type' || t.p === 'skos:prefLabel' || t.p === 'skos:altLabel' || t.p === 'skos:definition' },
-    { label: 'relations',    fn: (t) => t.kind === 'iri' && !t.p.startsWith('prov:') },
-    { label: 'provenance',   fn: (t) => t.p.startsWith('prov:') },
-    { label: 'measurements', fn: (t) => t.p === 'aleph:perceivedImportance' },
-  ];
-  return filters
-    .map((g) => ({ label: g.label, items: ALEPH_TRIPLES.filter(g.fn) }))
-    .filter((g) => g.items.length > 0);
+  const t = focusTriples.value;
+  const identity     = t.filter((x) => IDENTITY.has(x.predicate));
+  const measurements = t.filter((x) => MEASUREMENT.has(x.predicate));
+  const provenance   = t.filter((x) => x.predicate.startsWith('prov:'));
+  const relations    = t.filter((x) =>
+    x.kind === 'iri'
+    && !IDENTITY.has(x.predicate)
+    && !x.predicate.startsWith('prov:'),
+  );
+  return [
+    { label: 'identity',     items: identity },
+    { label: 'relations',    items: relations },
+    { label: 'provenance',   items: provenance },
+    { label: 'measurements', items: measurements },
+  ].filter((g) => g.items.length > 0);
 });
 
-interface Backlink { from: string; predicate: string; kind: 'concept' | 'person' | 'event'; via?: string }
-const backlinks: Backlink[] = [
-  { from: 'Cold War',           predicate: 'aleph:exemplifies', kind: 'event' },
-  { from: 'Auction Theory',     predicate: 'skos:broader',      kind: 'concept', via: 'Mechanism Design' },
-  { from: 'ESS',                predicate: 'skos:broader',      kind: 'concept', via: 'Evolutionary GT' },
-  { from: 'Cooperation',        predicate: 'skos:related',      kind: 'concept', via: "Prisoner's Dilemma" },
-  { from: 'Nash Equilibrium',   predicate: 'skos:broader',      kind: 'concept' },
-  { from: "Prisoner's Dilemma", predicate: 'skos:broader',      kind: 'concept' },
-];
+const backlinks = computed(() => graph.backlinksFor(graph.focusId));
 
-function backColor(k: Backlink['kind']) {
+function backColor(k: NodeKind) {
   if (k === 'person') return props.palette.kindPerson;
   if (k === 'event')  return props.palette.kindEvent;
   return props.palette.kindConcept;
 }
 
-function tripleColor(kind: AlephTriple['kind']) {
+function tripleColor(kind: FocusTriple['kind']) {
   if (kind === 'iri')  return props.palette.sepia;
   if (kind === 'type') return props.palette.kindConcept;
   return props.palette.fg;
 }
 
-interface Shape { name: string; status: 'pass' | 'warn'; detail: string }
-const shapes: Shape[] = [
-  { name: 'ConceptShape',          status: 'pass', detail: 'all required properties present' },
-  { name: 'ImportantConceptShape', status: 'pass', detail: 'perceivedImportance ≥ 0.7' },
-  { name: 'ProvenanceChainShape',  status: 'pass', detail: 'chain verified to Session_042' },
-  { name: 'DerivedFromShape',      status: 'warn', detail: '1 derivedFrom target missing foaf:Person type' },
-];
+const shaclPasses = computed(() => graph.shacl.filter((s) => s.status === 'pass').length);
+const shaclTotal = computed(() => graph.shacl.length);
 </script>
 
 <template>
-  <section
-    :style="{
-      width: width + 'px',
-      padding: pad,
-      position: 'relative',
-      background: palette.bg,
-      overflow: 'hidden',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '14px',
-    }"
-  >
+  <PageLayout :palette="palette" :width="width" :dense="dense">
     <ConceptHeader :palette="palette" :font-mono="fontMono" :font-prose="fontProse" />
 
     <div style="display: flex; gap: 14px; flex: 1; min-height: 0">
       <!-- left column: graph + triples -->
-      <div style="flex: 1; display: flex; flex-direction: column; gap: 14px">
+      <div style="flex: 1; display: flex; flex-direction: column; gap: 14px; min-width: 0">
         <!-- graph card -->
         <div
           :style="{
@@ -120,7 +109,7 @@ const shapes: Shape[] = [
                   textTransform: 'none',
                   letterSpacing: 0,
                 }"
-              >15 nodes · 14 edges</span>
+              >{{ graph.nodes.length }} nodes · {{ graph.edges.length }} edges</span>
             </div>
             <div style="display: flex; gap: 10px; text-transform: none; letter-spacing: 0">
               <span style="display: flex; align-items: center; gap: 4px">
@@ -134,7 +123,7 @@ const shapes: Shape[] = [
               </span>
             </div>
           </div>
-          <Schematic :palette="palette" :font-ui="fontUI" :font-mono="fontMono" hilite="gt" />
+          <Schematic :palette="palette" :font-ui="fontUI" :font-mono="fontMono" :hilite="graph.focusId" />
         </div>
 
         <!-- triples card -->
@@ -165,7 +154,7 @@ const shapes: Shape[] = [
               fontWeight: 600,
             }"
           >
-            <span>Triples — :GameTheory ?p ?o</span>
+            <span>Triples — :{{ graph.focusId }} ?p ?o</span>
             <span style="display: flex; gap: 8px">
               <span
                 :style="{
@@ -176,7 +165,7 @@ const shapes: Shape[] = [
                   textTransform: 'none',
                   letterSpacing: 0,
                 }"
-              >11 triples</span>
+              >{{ focusTriples.length }} triples</span>
               <span
                 :style="{
                   color: palette.sepia,
@@ -197,7 +186,7 @@ const shapes: Shape[] = [
               fontSize: '12px',
               lineHeight: 1.6,
               color: palette.fg,
-              overflow: 'hidden',
+              overflow: 'auto',
             }"
           >
             <div
@@ -223,8 +212,8 @@ const shapes: Shape[] = [
                 :key="i"
                 style="display: grid; grid-template-columns: 170px 1fr; gap: 14px; padding: 1px 0"
               >
-                <span :style="{ color: palette.accent, fontWeight: 500 }">{{ tr.p }}</span>
-                <span :style="{ color: tripleColor(tr.kind) }">{{ tr.o }}</span>
+                <span :style="{ color: palette.accent, fontWeight: 500 }">{{ tr.predicate }}</span>
+                <span :style="{ color: tripleColor(tr.kind), wordBreak: 'break-word' }">{{ tr.object }}</span>
               </div>
             </div>
           </div>
@@ -269,7 +258,7 @@ const shapes: Shape[] = [
                 textTransform: 'none',
                 letterSpacing: 0,
               }"
-            >14</span>
+            >{{ backlinks.length }}</span>
           </div>
           <div style="padding: 6px 0; display: flex; flex-direction: column">
             <div
@@ -288,7 +277,7 @@ const shapes: Shape[] = [
                 }"
               >
                 <span :style="{ width: '6px', height: '6px', borderRadius: '3px', background: backColor(b.kind) }" />
-                <span>{{ b.from }}</span>
+                <span>{{ b.fromLabel }}</span>
               </div>
               <div
                 :style="{
@@ -336,18 +325,18 @@ const shapes: Shape[] = [
             <span>SHACL</span>
             <span
               :style="{
-                color: palette.ok,
-                background: `${palette.ok}1a`,
+                color: shaclPasses === shaclTotal ? palette.ok : palette.warn,
+                background: `${shaclPasses === shaclTotal ? palette.ok : palette.warn}1a`,
                 padding: '2px 6px',
                 borderRadius: '3px',
                 textTransform: 'none',
                 letterSpacing: 0,
               }"
-            >3 / 4 pass</span>
+            >{{ shaclPasses }} / {{ shaclTotal }} pass</span>
           </div>
-          <div style="padding: 8px; display: flex; flex-direction: column; gap: 6px">
+          <div style="padding: 8px; display: flex; flex-direction: column; gap: 6px; overflow: auto">
             <div
-              v-for="(s, i) in shapes"
+              v-for="(s, i) in graph.shacl"
               :key="i"
               :style="{
                 padding: '7px 9px',
@@ -368,14 +357,14 @@ const shapes: Shape[] = [
                   fontWeight: 500,
                 }"
               >
-                <span>{{ s.name }}</span>
+                <span>{{ s.label ?? s.shape }}</span>
                 <span
                   :style="{
                     fontSize: '9px',
                     letterSpacing: '1.2px',
                     color: s.status === 'pass' ? palette.ok : palette.warn,
                   }"
-                >{{ s.status === 'pass' ? '✓ PASS' : '⚠ WARN' }}</span>
+                >{{ s.status === 'pass' ? '✓ PASS' : '⚠ ' + s.status.toUpperCase() }}</span>
               </div>
               <div
                 :style="{
@@ -391,5 +380,5 @@ const shapes: Shape[] = [
         </div>
       </div>
     </div>
-  </section>
+  </PageLayout>
 </template>

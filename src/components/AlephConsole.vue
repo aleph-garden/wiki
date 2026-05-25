@@ -1,7 +1,8 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import type { Palette } from '../palette';
 import type { Mode } from './types';
-import { ALEPH_CHAT } from '../data';
+import { loadDemoGraph } from '../lib/ttl';
 
 defineProps<{
   palette: Palette;
@@ -12,12 +13,31 @@ defineProps<{
   mode: Mode;
 }>();
 
-interface Proposed { s: string; p: string; o: string; ok: boolean | null }
-const proposed: Proposed[] = [
-  { s: ':GameTheory', p: 'skos:related',      o: ':InformationTheory', ok: true },
-  { s: ':GameTheory', p: 'aleph:derivedFrom', o: ':JohnVonNeumann',    ok: true },
-  { s: ':ColdWar',    p: 'aleph:exemplifies', o: ':GameTheory',        ok: null },
-];
+const graph = loadDemoGraph();
+
+const activeAgent = computed(() => {
+  const s = graph.sessions.find((x) => x.id === graph.activeSession);
+  return s?.agent ?? '—';
+});
+
+// Edges already committed by the active session.
+// Endpoint is considered "of the session" when its node was generatedBy this session.
+interface Proposed { s: string; p: string; o: string; ok: 'committed' | 'pending' }
+const proposed = computed<Proposed[]>(() => {
+  const inSession = new Set(
+    graph.nodes.filter((n) => n.generatedBy === graph.activeSession).map((n) => n.id),
+  );
+  return graph.edges
+    .filter((e) => inSession.has(e.s) || inSession.has(e.o))
+    .slice(0, 3)
+    .map((e) => ({ s: `:${e.s}`, p: e.predicate, o: `:${e.o}`, ok: 'committed' as const }));
+});
+
+function formatTime(iso?: string): string {
+  if (!iso) return '';
+  const t = iso.slice(11, 16);
+  return t || '';
+}
 </script>
 
 <template>
@@ -55,7 +75,7 @@ const proposed: Proposed[] = [
           }"
         >WRITING</span>
       </div>
-      <span :style="{ fontSize: '10px', color: palette.mute }">claude · sonnet-4.5</span>
+      <span :style="{ fontSize: '10px', color: palette.mute }">{{ activeAgent }}</span>
     </div>
 
     <!-- chat -->
@@ -70,33 +90,33 @@ const proposed: Proposed[] = [
         fontFamily: fontUI,
       }"
     >
-      <div v-for="(m, i) in ALEPH_CHAT" :key="i">
+      <div v-for="m in graph.chat" :key="m.position">
         <div
           :style="{
             fontFamily: fontMono,
             fontSize: '9.5px',
             letterSpacing: '1.4px',
             textTransform: 'uppercase',
-            color: m.who === 'user' ? palette.sepia : palette.accent,
+            color: m.speaker === 'user' ? palette.sepia : palette.accent,
             marginBottom: '4px',
             display: 'flex',
             justifyContent: 'space-between',
           }"
         >
-          <span>{{ m.who === 'user' ? 'you' : 'agent' }}{{ m.hint ? ` · ${m.hint}` : '' }}</span>
-          <span :style="{ color: palette.mute, letterSpacing: 0 }">14:23</span>
+          <span>{{ m.speaker === 'user' ? 'you' : 'agent' }}{{ m.hint ? ` · ${m.hint}` : '' }}</span>
+          <span :style="{ color: palette.mute, letterSpacing: 0 }">{{ formatTime(m.generatedAt) }}</span>
         </div>
         <div
           :style="{
             fontSize: '13px',
             lineHeight: 1.5,
-            background: m.who === 'user' ? 'transparent' : palette.soft,
-            padding: m.who === 'user' ? 0 : '8px 10px',
-            borderLeft: m.who === 'user' ? 'none' : `2px solid ${palette.accent}`,
-            borderRadius: m.who === 'user' ? 0 : '2px',
+            background: m.speaker === 'user' ? 'transparent' : palette.soft,
+            padding: m.speaker === 'user' ? 0 : '8px 10px',
+            borderLeft: m.speaker === 'user' ? 'none' : `2px solid ${palette.accent}`,
+            borderRadius: m.speaker === 'user' ? 0 : '2px',
             color: palette.fg,
           }"
-        >{{ m.text }}</div>
+        >{{ m.body }}</div>
       </div>
 
       <!-- proposed triples -->
@@ -121,7 +141,7 @@ const proposed: Proposed[] = [
             gap: '8px',
           }"
         >
-          <span>proposed · awaiting confirmation</span>
+          <span>committed in {{ graph.activeSession.toLowerCase() }}</span>
           <span :style="{ flex: 1, height: '1px', background: `${palette.gold}40` }" />
         </div>
         <div
@@ -144,7 +164,7 @@ const proposed: Proposed[] = [
             <span :style="{ color: palette.fg }"> .</span>
           </div>
           <div style="display: flex; gap: 6px; margin-top: 6px">
-            <template v-if="p.ok === true">
+            <template v-if="p.ok === 'committed'">
               <span
                 :style="{
                   fontSize: '9px',
