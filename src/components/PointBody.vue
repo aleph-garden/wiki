@@ -20,6 +20,8 @@ const props = defineProps<{
 
 type Renderer = 'svg' | 'd3';
 const renderer = ref<Renderer>('svg');
+const d3Ref = ref<InstanceType<typeof OrbitalD3> | null>(null);
+function resetZoom() { d3Ref.value?.resetZoom?.(); }
 
 const graph = loadDemoGraph();
 const focusId = computed(() => graph.view.path[0] ?? graph.nodes[0]?.id ?? 'GameTheory');
@@ -41,8 +43,19 @@ const labelById = (id: string) => graph.nodes.find((n) => n.id === id)?.label ??
       background: palette.bg,
     }"
   >
-    <component
-      :is="renderer === 'd3' ? OrbitalD3 : OrbitalSvg"
+    <OrbitalSvg
+      v-if="renderer === 'svg'"
+      :graph="graph"
+      :palette="palette"
+      :font-mono="fontMono"
+      :width="width"
+      :height="height"
+      :focus-id="focusId"
+      :narrator-side="narratorSide"
+    />
+    <OrbitalD3
+      v-else
+      ref="d3Ref"
       :graph="graph"
       :palette="palette"
       :font-mono="fontMono"
@@ -88,6 +101,32 @@ const labelById = (id: string) => graph.nodes.find((n) => n.id === id)?.label ??
           letterSpacing: '1.2px',
         }"
       >{{ r }}</button>
+      <span
+        v-if="renderer === 'd3'"
+        :style="{
+          padding: '0 8px',
+          color: palette.mute,
+          fontSize: '9px',
+          letterSpacing: '1px',
+          borderLeft: `1px solid ${palette.rule}`,
+          marginLeft: '4px',
+        }"
+      >scroll · drag</span>
+      <button
+        v-if="renderer === 'd3'"
+        @click="resetZoom"
+        :style="{
+          padding: '4px 8px',
+          borderRadius: '999px',
+          border: 'none',
+          cursor: 'pointer',
+          background: 'transparent',
+          color: palette.mute,
+          fontFamily: fontMono,
+          fontSize: '11px',
+        }"
+        title="reset zoom"
+      >↺</button>
     </div>
 
     <!-- question banner -->

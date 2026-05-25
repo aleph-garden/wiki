@@ -18,6 +18,23 @@ const props = defineProps<{
 
 const svgEl = ref<SVGSVGElement | null>(null);
 
+let currentTransform: d3.ZoomTransform = d3.zoomIdentity;
+const zoomBehavior = d3.zoom<SVGSVGElement, unknown>()
+  .scaleExtent([0.2, 6])
+  .on('zoom', (ev) => {
+    currentTransform = ev.transform;
+    d3.select(svgEl.value).select<SVGGElement>('g.zoom-root')
+      .attr('transform', ev.transform.toString());
+  });
+
+function resetZoom() {
+  if (!svgEl.value) return;
+  d3.select(svgEl.value)
+    .transition().duration(220)
+    .call(zoomBehavior.transform, d3.zoomIdentity);
+}
+defineExpose({ resetZoom });
+
 function nodeColor(kind: 'concept' | 'person' | 'event', pal: Palette): string {
   if (kind === 'person') return pal.cool;
   if (kind === 'event')  return pal.hot;
@@ -29,12 +46,16 @@ function render(svgNode: SVGSVGElement, layout: Layout) {
   const fontMono = props.fontMono;
   const svg = d3.select(svgNode);
   svg.attr('width', layout.width).attr('height', layout.height);
+  svg.style('cursor', 'grab');
 
   // wipe
   svg.selectAll('*').remove();
 
-  // ── defs ──
+  // ── defs (stay at svg root so gradients are referenceable) ──
   const defs = svg.append('defs');
+  // ── zoom root: everything pannable/zoomable lives here ──
+  const root = svg.append('g').attr('class', 'zoom-root')
+    .attr('transform', currentTransform.toString());
   const nebula = defs.append('radialGradient')
     .attr('id', 'orbd3-nebula').attr('cx', '50%').attr('cy', '50%').attr('r', '55%');
   nebula.append('stop').attr('offset', '0%').attr('stop-color', pal.halo).attr('stop-opacity', 0.14);
@@ -46,25 +67,25 @@ function render(svgNode: SVGSVGElement, layout: Layout) {
   core.append('stop').attr('offset', '100%').attr('stop-color', pal.halo).attr('stop-opacity', 0);
 
   // ── stars ──
-  const starsG = svg.append('g').attr('class', 'stars');
+  const starsG = root.append('g').attr('class', 'stars');
   starsG.selectAll('circle')
     .data(layout.stars)
     .join('circle')
     .attr('cx', (d) => d.x).attr('cy', (d) => d.y).attr('r', (d) => d.r)
     .attr('fill', pal.fg).attr('opacity', (d) => d.op);
 
-  svg.append('rect')
+  root.append('rect')
     .attr('x', 0).attr('y', 0)
     .attr('width', layout.width).attr('height', layout.height)
     .attr('fill', 'url(#orbd3-nebula)');
 
   // halo
-  svg.append('circle')
+  root.append('circle')
     .attr('cx', layout.cx).attr('cy', layout.cy).attr('r', layout.core.haloR)
     .attr('fill', 'url(#orbd3-core)');
 
   // orbits
-  const orbitsG = svg.append('g').attr('class', 'orbits');
+  const orbitsG = root.append('g').attr('class', 'orbits');
   orbitsG.selectAll('circle')
     .data(layout.orbits)
     .join('circle')
@@ -85,7 +106,7 @@ function render(svgNode: SVGSVGElement, layout: Layout) {
     .text((d) => d.label);
 
   // trail
-  const trailG = svg.append('g').attr('class', 'trail');
+  const trailG = root.append('g').attr('class', 'trail');
   const trail = trailG.selectAll('g')
     .data(layout.trail)
     .join('g')
@@ -100,14 +121,14 @@ function render(svgNode: SVGSVGElement, layout: Layout) {
     .attr('fill', pal.mute)
     .text((d) => d.label);
   if (layout.trailPath) {
-    svg.append('path')
+    root.append('path')
       .attr('d', layout.trailPath)
       .attr('stroke', pal.aleph).attr('stroke-width', 0.4).attr('stroke-dasharray', '2 5')
       .attr('fill', 'none').attr('opacity', 0.25);
   }
 
   // spokes
-  const spokesG = svg.append('g').attr('class', 'spokes');
+  const spokesG = root.append('g').attr('class', 'spokes');
   spokesG.selectAll('line')
     .data(layout.spokes)
     .join('line')
@@ -116,7 +137,7 @@ function render(svgNode: SVGSVGElement, layout: Layout) {
     .attr('stroke', pal.faint).attr('stroke-width', 0.6).attr('stroke-dasharray', '1 3');
 
   // core
-  const coreG = svg.append('g').attr('class', 'core');
+  const coreG = root.append('g').attr('class', 'core');
   coreG.append('circle')
     .attr('cx', layout.cx).attr('cy', layout.cy).attr('r', layout.core.ring1R)
     .attr('fill', 'none').attr('stroke', pal.aleph).attr('stroke-width', 0.6).attr('opacity', 0.15);
@@ -162,7 +183,7 @@ function render(svgNode: SVGSVGElement, layout: Layout) {
 
   // reasoning path
   if (layout.reasoningD) {
-    const rg = svg.append('g').attr('class', 'reasoning');
+    const rg = root.append('g').attr('class', 'reasoning');
     rg.append('path')
       .attr('d', layout.reasoningD)
       .attr('stroke', pal.hot).attr('stroke-width', 6).attr('fill', 'none')
@@ -194,7 +215,7 @@ function render(svgNode: SVGSVGElement, layout: Layout) {
   }
 
   // orbital nodes
-  const nodesG = svg.append('g').attr('class', 'nodes');
+  const nodesG = root.append('g').attr('class', 'nodes');
   const node = nodesG.selectAll('g.node')
     .data(layout.nodes, (d: any) => d.node.id)
     .join('g')
@@ -247,7 +268,7 @@ function render(svgNode: SVGSVGElement, layout: Layout) {
     .text((d) => d.predicate.toUpperCase());
 
   // narration foreignObjects
-  const noteG = svg.append('g').attr('class', 'notes');
+  const noteG = root.append('g').attr('class', 'notes');
   const noteFo = noteG.selectAll<SVGForeignObjectElement, Layout['pathNoteAnchors'][number]>('foreignObject')
     .data(layout.pathNoteAnchors)
     .join('foreignObject')
@@ -280,6 +301,10 @@ function render(svgNode: SVGSVGElement, layout: Layout) {
       ${d.text.replace(/\n/g, '<br/>')}
     </div>
   `);
+
+  // ── (re-)attach pan/zoom behavior, restore last transform ──
+  svg.call(zoomBehavior);
+  svg.call(zoomBehavior.transform, currentTransform);
 }
 
 let stopHandle: ReturnType<typeof watchEffect> | null = null;
