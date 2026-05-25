@@ -4,7 +4,6 @@ import type { Palette } from '../palette';
 import { FONT_SERIF as SERIF } from '../palette';
 import { loadDemoGraph } from '../lib/ttl';
 import AlephGlyph from './AlephGlyph.vue';
-import OrbitalSvg from './OrbitalSvg.vue';
 import OrbitalD3 from './OrbitalD3.vue';
 
 const props = defineProps<{
@@ -18,8 +17,6 @@ const props = defineProps<{
   narratorSide?: 'left' | 'right';
 }>();
 
-type Renderer = 'svg' | 'd3';
-const renderer = ref<Renderer>('svg');
 const d3Ref = ref<InstanceType<typeof OrbitalD3> | null>(null);
 function resetZoom() { d3Ref.value?.resetZoom?.(); }
 
@@ -43,18 +40,7 @@ const labelById = (id: string) => graph.nodes.find((n) => n.id === id)?.label ??
       background: palette.bg,
     }"
   >
-    <OrbitalSvg
-      v-if="renderer === 'svg'"
-      :graph="graph"
-      :palette="palette"
-      :font-mono="fontMono"
-      :width="width"
-      :height="height"
-      :focus-id="focusId"
-      :narrator-side="narratorSide"
-    />
     <OrbitalD3
-      v-else
       ref="d3Ref"
       :graph="graph"
       :palette="palette"
@@ -65,7 +51,7 @@ const labelById = (id: string) => graph.nodes.find((n) => n.id === id)?.label ??
       :narrator-side="narratorSide"
     />
 
-    <!-- renderer toggle -->
+    <!-- zoom controls -->
     <div
       :style="{
         position: 'absolute',
@@ -74,49 +60,27 @@ const labelById = (id: string) => graph.nodes.find((n) => n.id === id)?.label ??
         zIndex: 7,
         display: 'flex',
         alignItems: 'center',
-        gap: '2px',
-        padding: '2px',
+        gap: '6px',
+        padding: '4px 10px',
         background: `${palette.bg}c8`,
         border: `1px solid ${palette.rule}`,
         borderRadius: '999px',
         backdropFilter: 'blur(8px)',
         fontFamily: fontMono,
-        fontSize: '10px',
-        letterSpacing: '1.2px',
-        textTransform: 'uppercase',
+        color: palette.mute,
       }"
     >
-      <button
-        v-for="r in (['svg','d3'] as Renderer[])" :key="r"
-        @click="renderer = r"
-        :style="{
-          padding: '4px 10px',
-          borderRadius: '999px',
-          border: 'none',
-          cursor: 'pointer',
-          background: renderer === r ? palette.panel : 'transparent',
-          color: renderer === r ? palette.fg : palette.mute,
-          fontFamily: fontMono,
-          fontSize: '10px',
-          letterSpacing: '1.2px',
-        }"
-      >{{ r }}</button>
       <span
-        v-if="renderer === 'd3'"
         :style="{
-          padding: '0 8px',
-          color: palette.mute,
           fontSize: '9px',
           letterSpacing: '1px',
-          borderLeft: `1px solid ${palette.rule}`,
-          marginLeft: '4px',
+          textTransform: 'uppercase',
         }"
       >scroll · drag</span>
       <button
-        v-if="renderer === 'd3'"
         @click="resetZoom"
         :style="{
-          padding: '4px 8px',
+          padding: '2px 8px',
           borderRadius: '999px',
           border: 'none',
           cursor: 'pointer',
