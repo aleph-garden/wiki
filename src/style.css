@@ -1,0 +1,22 @@
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #f0eee9;
+  min-height: 100vh;
+}
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  color-scheme: light dark;
+}
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+button {
+  font: inherit;
+  color: inherit;
+}
+@keyframes ap-cursor {
+  50% { opacity: 0; }
+}

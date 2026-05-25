@@ -1,0 +1,229 @@
+<script setup lang="ts">
+import type { Palette } from '../palette';
+import type { Mode } from './types';
+import { ALEPH_CHAT } from '../data';
+
+defineProps<{
+  palette: Palette;
+  fontUI: string;
+  fontMono: string;
+  width: number;
+  dense: boolean;
+  mode: Mode;
+}>();
+
+interface Proposed { s: string; p: string; o: string; ok: boolean | null }
+const proposed: Proposed[] = [
+  { s: ':GameTheory', p: 'skos:related',      o: ':InformationTheory', ok: true },
+  { s: ':GameTheory', p: 'aleph:derivedFrom', o: ':JohnVonNeumann',    ok: true },
+  { s: ':ColdWar',    p: 'aleph:exemplifies', o: ':GameTheory',        ok: null },
+];
+</script>
+
+<template>
+  <aside
+    :style="{
+      width: width + 'px',
+      borderLeft: `1px solid ${palette.rule}`,
+      background: palette.panel,
+      display: 'flex',
+      flexDirection: 'column',
+      overflow: 'hidden',
+    }"
+  >
+    <!-- header -->
+    <div
+      :style="{
+        padding: '12px 16px',
+        borderBottom: `1px solid ${palette.rule}`,
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        fontFamily: fontMono,
+      }"
+    >
+      <div style="display: flex; align-items: center; gap: 8px">
+        <span style="font-size: 11px; font-weight: 600">aleph › agent</span>
+        <span
+          :style="{
+            fontSize: '9px',
+            padding: '1px 5px',
+            borderRadius: '3px',
+            background: `${palette.ok}1a`,
+            color: palette.ok,
+            letterSpacing: '1.2px',
+          }"
+        >WRITING</span>
+      </div>
+      <span :style="{ fontSize: '10px', color: palette.mute }">claude · sonnet-4.5</span>
+    </div>
+
+    <!-- chat -->
+    <div
+      :style="{
+        flex: 1,
+        padding: '14px 16px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: dense ? '12px' : '16px',
+        overflow: 'hidden',
+        fontFamily: fontUI,
+      }"
+    >
+      <div v-for="(m, i) in ALEPH_CHAT" :key="i">
+        <div
+          :style="{
+            fontFamily: fontMono,
+            fontSize: '9.5px',
+            letterSpacing: '1.4px',
+            textTransform: 'uppercase',
+            color: m.who === 'user' ? palette.sepia : palette.accent,
+            marginBottom: '4px',
+            display: 'flex',
+            justifyContent: 'space-between',
+          }"
+        >
+          <span>{{ m.who === 'user' ? 'you' : 'agent' }}{{ m.hint ? ` · ${m.hint}` : '' }}</span>
+          <span :style="{ color: palette.mute, letterSpacing: 0 }">14:23</span>
+        </div>
+        <div
+          :style="{
+            fontSize: '13px',
+            lineHeight: 1.5,
+            background: m.who === 'user' ? 'transparent' : palette.soft,
+            padding: m.who === 'user' ? 0 : '8px 10px',
+            borderLeft: m.who === 'user' ? 'none' : `2px solid ${palette.accent}`,
+            borderRadius: m.who === 'user' ? 0 : '2px',
+            color: palette.fg,
+          }"
+        >{{ m.text }}</div>
+      </div>
+
+      <!-- proposed triples -->
+      <div
+        :style="{
+          borderTop: `1px dashed ${palette.rule}`,
+          paddingTop: '12px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '8px',
+        }"
+      >
+        <div
+          :style="{
+            fontFamily: fontMono,
+            fontSize: '9.5px',
+            letterSpacing: '1.4px',
+            textTransform: 'uppercase',
+            color: palette.gold,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+          }"
+        >
+          <span>proposed · awaiting confirmation</span>
+          <span :style="{ flex: 1, height: '1px', background: `${palette.gold}40` }" />
+        </div>
+        <div
+          v-for="(p, i) in proposed"
+          :key="i"
+          :style="{
+            background: palette.bg,
+            border: `1px solid ${palette.rule}`,
+            borderRadius: '3px',
+            padding: '8px',
+            fontFamily: fontMono,
+            fontSize: '11.5px',
+            lineHeight: 1.55,
+          }"
+        >
+          <div>
+            <span :style="{ color: palette.sepia }">{{ p.s }}</span>
+            <span :style="{ color: palette.accent, margin: '0 6px' }">{{ p.p }}</span>
+            <span :style="{ color: palette.sepia }">{{ p.o }}</span>
+            <span :style="{ color: palette.fg }"> .</span>
+          </div>
+          <div style="display: flex; gap: 6px; margin-top: 6px">
+            <template v-if="p.ok === true">
+              <span
+                :style="{
+                  fontSize: '9px',
+                  color: palette.ok,
+                  padding: '1px 6px',
+                  background: `${palette.ok}1a`,
+                  borderRadius: '3px',
+                  letterSpacing: '1.2px',
+                }"
+              >COMMITTED</span>
+            </template>
+            <template v-else>
+              <button
+                :style="{
+                  fontFamily: fontMono,
+                  fontSize: '11px',
+                  padding: '3px 8px',
+                  background: palette.fg,
+                  color: palette.bg,
+                  border: 'none',
+                  borderRadius: '3px',
+                  cursor: 'pointer',
+                }"
+              >accept</button>
+              <button
+                :style="{
+                  fontFamily: fontMono,
+                  fontSize: '11px',
+                  padding: '3px 8px',
+                  background: 'transparent',
+                  color: palette.mute,
+                  border: `1px solid ${palette.rule}`,
+                  borderRadius: '3px',
+                  cursor: 'pointer',
+                }"
+              >edit</button>
+              <button
+                :style="{
+                  fontFamily: fontMono,
+                  fontSize: '11px',
+                  padding: '3px 8px',
+                  background: 'transparent',
+                  color: palette.warn,
+                  border: 'none',
+                  cursor: 'pointer',
+                }"
+              >reject</button>
+            </template>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- input -->
+    <div
+      :style="{
+        padding: '12px 16px',
+        borderTop: `1px solid ${palette.rule}`,
+        fontFamily: fontMono,
+        fontSize: '12px',
+        color: palette.fg,
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+      }"
+    >
+      <span :style="{ color: palette.sepia, fontWeight: 600 }">›</span>
+      <span :style="{ color: palette.mute, flex: 1 }">
+        /link InformationTheory --as related
+      </span>
+      <span
+        :style="{
+          display: 'inline-block',
+          width: '1.5px',
+          height: '14px',
+          background: palette.fg,
+          animation: 'ap-cursor 1s steps(2) infinite',
+        }"
+      />
+    </div>
+  </aside>
+</template>
