@@ -1,0 +1,89 @@
+@prefix aleph: <https://vocab.aleph.wiki/> .
+@prefix rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl:   <http://www.w3.org/2002/07/owl#> .
+@prefix skos:  <http://www.w3.org/2004/02/skos/core#> .
+@prefix foaf:  <http://xmlns.com/foaf/0.1/> .
+@prefix prov:  <http://www.w3.org/ns/prov#> .
+@prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .
+
+<https://vocab.aleph.wiki/> a owl:Ontology ;
+    rdfs:label "Aleph Wiki Vocabulary"@en ;
+    rdfs:comment "Terms for the aleph.wiki knowledge graph: concepts, sessions, layout hints, and view state."@en .
+
+#################################################################
+# Core classes
+#################################################################
+
+aleph:Concept       a owl:Class ; rdfs:subClassOf skos:Concept ;
+    rdfs:comment "A node in the knowledge graph that is neither a person nor an event."@en .
+
+aleph:Person        a owl:Class ; rdfs:subClassOf foaf:Person ;
+    rdfs:comment "A historical or living person referenced by the graph."@en .
+
+aleph:Event         a owl:Class ;
+    rdfs:comment "A bounded historical event."@en .
+
+aleph:ImportantConcept a owl:Class ; rdfs:subClassOf aleph:Concept ;
+    rdfs:comment "A concept whose perceivedImportance is >= 0.7. Asserted, not inferred."@en .
+
+aleph:AlephSession  a owl:Class ; rdfs:subClassOf prov:Activity ;
+    rdfs:comment "A single learning/recording session during which concepts were generated."@en .
+
+aleph:ChatMessage   a owl:Class ;
+    rdfs:comment "A single utterance inside an AlephSession. Ordered via aleph:position."@en .
+
+aleph:View          a owl:Class ;
+    rdfs:comment "Captured view state: a question, a reasoning path, narration notes, suggestions."@en .
+
+aleph:ShaclResult   a owl:Class ;
+    rdfs:comment "Captured outcome of a SHACL validation run for the demo."@en .
+
+#################################################################
+# Custom predicates
+#################################################################
+
+aleph:perceivedImportance a owl:DatatypeProperty ;
+    rdfs:domain aleph:Concept ; rdfs:range xsd:decimal ;
+    rdfs:comment "Subjective importance in [0,1]. Drives node size and orbit placement."@en .
+
+aleph:derivedFrom   a owl:ObjectProperty ;
+    rdfs:comment "This concept was first articulated by / derives from the target person or work."@en .
+
+aleph:requires      a owl:ObjectProperty ;
+    rdfs:comment "Understanding this concept assumes the target concept."@en .
+
+aleph:exemplifies   a owl:ObjectProperty ;
+    rdfs:comment "This event/case is a concrete instance of the target concept."@en .
+
+# Layout hints (cached from previous render; regenerated as graph grows)
+aleph:layoutX       a owl:DatatypeProperty ; rdfs:range xsd:decimal .
+aleph:layoutY       a owl:DatatypeProperty ; rdfs:range xsd:decimal .
+
+# Session bookkeeping
+aleph:focus         a owl:DatatypeProperty ;
+    rdfs:domain aleph:AlephSession ; rdfs:range xsd:string .
+aleph:conceptCount  a owl:DatatypeProperty ;
+    rdfs:domain aleph:AlephSession ; rdfs:range xsd:integer .
+
+# Chat
+aleph:position      a owl:DatatypeProperty ; rdfs:range xsd:integer .
+aleph:speaker       a owl:DatatypeProperty ; rdfs:range xsd:string .  # "user" | "agent"
+aleph:body          a owl:DatatypeProperty ; rdfs:range xsd:string .
+aleph:hint          a owl:DatatypeProperty ; rdfs:range xsd:string .  # e.g. "insight", "suggestion"
+
+# View state
+aleph:question      a owl:DatatypeProperty ; rdfs:range xsd:string .
+aleph:pathStep      a owl:ObjectProperty .   # used inside a list-ordered blank node
+aleph:pathNote      a owl:ObjectProperty .   # -> blank node with aleph:atConcept + aleph:noteText
+aleph:edgeNote      a owl:ObjectProperty .   # -> blank node with from/to/pretty/cite
+aleph:suggestion    a owl:ObjectProperty .   # -> blank node with aleph:target + aleph:reason
+aleph:atConcept     a owl:ObjectProperty .
+aleph:noteText      a owl:DatatypeProperty ; rdfs:range xsd:string .
+aleph:reason        a owl:DatatypeProperty ; rdfs:range xsd:string .
+aleph:cite          a owl:DatatypeProperty ; rdfs:range xsd:string .
+
+# SHACL run capture
+aleph:shape         a owl:ObjectProperty .
+aleph:status        a owl:DatatypeProperty ; rdfs:range xsd:string .  # "pass" | "warn" | "fail"
+aleph:detail        a owl:DatatypeProperty ; rdfs:range xsd:string .

@@ -1,0 +1,287 @@
+@prefix :      <https://aleph.wiki/g/> .
+@prefix aleph: <https://vocab.aleph.wiki/> .
+@prefix skos:  <http://www.w3.org/2004/02/skos/core#> .
+@prefix foaf:  <http://xmlns.com/foaf/0.1/> .
+@prefix prov:  <http://www.w3.org/ns/prov#> .
+@prefix rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .
+
+# ──────────────────────────────────────────────────────────────
+# Demo dataset: "Game theory across fields"
+# Mirrors src/data.ts so the UI can be driven from real RDF
+# instead of hardcoded constants.
+# ──────────────────────────────────────────────────────────────
+
+<https://aleph.wiki/g/demo-game-theory> a prov:Bundle ;
+    rdfs:label "Demo · Game Theory"@en ;
+    rdfs:comment "Captured state of the aleph.wiki interface after session 042."@en ;
+    prov:generatedAtTime "2026-04-12T15:08:00Z"^^xsd:dateTime .
+
+#################################################################
+# Agents
+#################################################################
+:Toph a foaf:Person, prov:Person ;
+    foaf:name "Christopher Mühl" ;
+    rdfs:label "Toph"@en .
+
+:Claude_sonnet a prov:SoftwareAgent ;
+    rdfs:label "Claude (sonnet-4.5)"@en ;
+    prov:actedOnBehalfOf :Toph .
+
+:Claude_haiku a prov:SoftwareAgent ;
+    rdfs:label "Claude (haiku-4.5)"@en ;
+    prov:actedOnBehalfOf :Toph .
+
+#################################################################
+# Sessions
+#################################################################
+:Session_042 a aleph:AlephSession ;
+    rdfs:label "Session 042"@en ;
+    aleph:focus "Game theory across fields" ;
+    aleph:conceptCount 9 ;
+    prov:startedAtTime "2026-04-12T14:23:00Z"^^xsd:dateTime ;
+    prov:wasAssociatedWith :Claude_sonnet, :Toph .
+
+:Session_041 a aleph:AlephSession ;
+    rdfs:label "Session 041"@en ;
+    aleph:focus "John Nash · biography" ;
+    aleph:conceptCount 4 ;
+    prov:startedAtTime "2026-04-11T09:08:00Z"^^xsd:dateTime ;
+    prov:endedAtTime   "2026-04-11T10:02:00Z"^^xsd:dateTime ;
+    prov:wasAssociatedWith :Claude_sonnet, :Toph .
+
+:Session_038 a aleph:AlephSession ;
+    rdfs:label "Session 038"@en ;
+    aleph:focus "Equilibrium · fixed points" ;
+    aleph:conceptCount 6 ;
+    prov:startedAtTime "2026-04-04T22:14:00Z"^^xsd:dateTime ;
+    prov:endedAtTime   "2026-04-04T23:31:00Z"^^xsd:dateTime ;
+    prov:wasAssociatedWith :Claude_haiku, :Toph .
+
+:Session_035 a aleph:AlephSession ;
+    rdfs:label "Session 035"@en ;
+    aleph:focus "Information theory · entropy" ;
+    aleph:conceptCount 12 ;
+    prov:startedAtTime "2026-03-28T11:51:00Z"^^xsd:dateTime ;
+    prov:endedAtTime   "2026-03-28T13:40:00Z"^^xsd:dateTime ;
+    prov:wasAssociatedWith :Claude_sonnet, :Toph .
+
+#################################################################
+# People referenced by the graph
+#################################################################
+:JohnVonNeumann a aleph:Person, foaf:Person ;
+    skos:prefLabel "John von Neumann"@en ;
+    aleph:perceivedImportance 0.78 ;
+    aleph:layoutX  60 ; aleph:layoutY -200 ;
+    prov:wasGeneratedBy :Session_042 ;
+    prov:generatedAtTime "2026-04-12T14:24:11Z"^^xsd:dateTime .
+
+:JohnNash a aleph:Person, foaf:Person ;
+    skos:prefLabel "John Nash"@en ;
+    aleph:perceivedImportance 0.70 ;
+    aleph:layoutX -210 ; aleph:layoutY -110 ;
+    prov:wasGeneratedBy :Session_041 ;
+    prov:generatedAtTime "2026-04-11T09:14:02Z"^^xsd:dateTime .
+
+:ClaudeShannon a aleph:Person, foaf:Person ;
+    skos:prefLabel "Claude Shannon"@en ;
+    aleph:perceivedImportance 0.55 ;
+    aleph:layoutX 490 ; aleph:layoutY -230 ;
+    prov:wasGeneratedBy :Session_035 ;
+    prov:generatedAtTime "2026-03-28T12:07:44Z"^^xsd:dateTime .
+
+#################################################################
+# Events
+#################################################################
+:ColdWar a aleph:Event ;
+    skos:prefLabel "Cold War"@en ;
+    aleph:perceivedImportance 0.55 ;
+    aleph:layoutX -220 ; aleph:layoutY -220 ;
+    aleph:exemplifies :GameTheory ;
+    prov:wasGeneratedBy :Session_042 ;
+    prov:generatedAtTime "2026-04-12T14:41:19Z"^^xsd:dateTime .
+
+#################################################################
+# Concepts — focus node first
+#################################################################
+:GameTheory a aleph:Concept, aleph:ImportantConcept ;
+    skos:prefLabel "Game Theory"@en ;
+    skos:altLabel  "Theory of games"@en ;
+    skos:definition "The mathematical study of strategic interaction among rational agents."@en ;
+    aleph:perceivedImportance 0.95 ;
+    aleph:layoutX 0 ; aleph:layoutY 0 ;
+    aleph:derivedFrom :JohnVonNeumann ;
+    aleph:requires    :Rationality ;
+    skos:related      :InformationTheory ;
+    prov:wasGeneratedBy :Session_042 ;
+    prov:generatedAtTime "2026-04-12T14:23:01Z"^^xsd:dateTime .
+
+:NashEquilibrium a aleph:Concept, aleph:ImportantConcept ;
+    skos:prefLabel "Nash Equilibrium"@en ;
+    aleph:perceivedImportance 0.82 ;
+    aleph:layoutX -260 ; aleph:layoutY 40 ;
+    skos:broader :GameTheory ;
+    prov:wasAttributedTo :JohnNash ;
+    prov:wasGeneratedBy :Session_038 ;
+    prov:generatedAtTime "2026-04-04T22:31:08Z"^^xsd:dateTime .
+
+:PrisonersDilemma a aleph:Concept, aleph:ImportantConcept ;
+    skos:prefLabel "Prisoner's Dilemma"@en ;
+    aleph:perceivedImportance 0.80 ;
+    aleph:layoutX -110 ; aleph:layoutY 180 ;
+    skos:broader :GameTheory ;
+    skos:related :Cooperation ;
+    prov:wasGeneratedBy :Session_042 ;
+    prov:generatedAtTime "2026-04-12T14:28:55Z"^^xsd:dateTime .
+
+:EvolutionaryGameTheory a aleph:Concept ;
+    skos:prefLabel "Evolutionary Game Theory"@en ;
+    aleph:perceivedImportance 0.66 ;
+    aleph:layoutX 210 ; aleph:layoutY 150 ;
+    skos:broader :GameTheory ;
+    skos:related :Evolution ;
+    prov:wasGeneratedBy :Session_042 ;
+    prov:generatedAtTime "2026-04-12T14:33:12Z"^^xsd:dateTime .
+
+:MechanismDesign a aleph:Concept ;
+    skos:prefLabel "Mechanism Design"@en ;
+    aleph:perceivedImportance 0.60 ;
+    aleph:layoutX 290 ; aleph:layoutY -30 ;
+    skos:broader :GameTheory ;
+    prov:wasGeneratedBy :Session_042 ;
+    prov:generatedAtTime "2026-04-12T14:35:40Z"^^xsd:dateTime .
+
+:InformationTheory a aleph:Concept, aleph:ImportantConcept ;
+    skos:prefLabel "Information Theory"@en ;
+    aleph:perceivedImportance 0.74 ;
+    aleph:layoutX 360 ; aleph:layoutY -140 ;
+    prov:wasAttributedTo :ClaudeShannon ;
+    prov:wasGeneratedBy :Session_035 ;
+    prov:generatedAtTime "2026-03-28T12:02:14Z"^^xsd:dateTime .
+
+:Rationality a aleph:Concept ;
+    skos:prefLabel "Rationality"@en ;
+    aleph:perceivedImportance 0.62 ;
+    aleph:layoutX -380 ; aleph:layoutY -50 ;
+    prov:wasGeneratedBy :Session_042 ;
+    prov:generatedAtTime "2026-04-12T14:25:30Z"^^xsd:dateTime .
+
+:ESS a aleph:Concept ;
+    skos:prefLabel "ESS"@en ;
+    skos:altLabel  "Evolutionarily Stable Strategy"@en ;
+    aleph:perceivedImportance 0.42 ;
+    aleph:layoutX 320 ; aleph:layoutY 270 ;
+    skos:broader :EvolutionaryGameTheory ;
+    prov:wasGeneratedBy :Session_042 ;
+    prov:generatedAtTime "2026-04-12T14:38:02Z"^^xsd:dateTime .
+
+:AuctionTheory a aleph:Concept ;
+    skos:prefLabel "Auction Theory"@en ;
+    aleph:perceivedImportance 0.40 ;
+    aleph:layoutX 410 ; aleph:layoutY 80 ;
+    skos:broader :MechanismDesign ;
+    prov:wasGeneratedBy :Session_042 ;
+    prov:generatedAtTime "2026-04-12T14:36:55Z"^^xsd:dateTime .
+
+:Cooperation a aleph:Concept ;
+    skos:prefLabel "Cooperation"@en ;
+    aleph:perceivedImportance 0.50 ;
+    aleph:layoutX -260 ; aleph:layoutY 260 ;
+    prov:wasGeneratedBy :Session_042 ;
+    prov:generatedAtTime "2026-04-12T14:30:12Z"^^xsd:dateTime .
+
+:Evolution a aleph:Concept ;
+    skos:prefLabel "Evolution"@en ;
+    aleph:perceivedImportance 0.58 ;
+    aleph:layoutX 140 ; aleph:layoutY 300 ;
+    prov:wasGeneratedBy :Session_042 ;
+    prov:generatedAtTime "2026-04-12T14:33:55Z"^^xsd:dateTime .
+
+#################################################################
+# Chat — the transcript of Session_042 so far
+#################################################################
+:Session_042_msg1 a aleph:ChatMessage ;
+    aleph:position 1 ; aleph:speaker "user" ;
+    aleph:body "i want to map out how game theory shows up across fields — biology, econ, politics" ;
+    prov:wasGeneratedBy :Session_042 ;
+    prov:generatedAtTime "2026-04-12T14:23:01Z"^^xsd:dateTime .
+
+:Session_042_msg2 a aleph:ChatMessage ;
+    aleph:position 2 ; aleph:speaker "agent" ;
+    aleph:body "Good seed. I'll anchor the concept and pull its direct neighbors from your existing graph first. You already have Nash Equilibrium (created in Session 38) and a stub for von Neumann — I'll link them as :derivedFrom and :wasAttributedTo." ;
+    prov:wasGeneratedBy :Session_042 ;
+    prov:generatedAtTime "2026-04-12T14:23:34Z"^^xsd:dateTime .
+
+:Session_042_msg3 a aleph:ChatMessage ;
+    aleph:position 3 ; aleph:speaker "agent" ;
+    aleph:hint "suggestion" ;
+    aleph:body "Adding Prisoner's Dilemma · Evolutionary Game Theory · Mechanism Design. Should I import the Cold War branch (deterrence, MAD)? It connects to your Politics cluster." ;
+    prov:wasGeneratedBy :Session_042 ;
+    prov:generatedAtTime "2026-04-12T14:28:11Z"^^xsd:dateTime .
+
+:Session_042_msg4 a aleph:ChatMessage ;
+    aleph:position 4 ; aleph:speaker "user" ;
+    aleph:body "yes, and link information theory" ;
+    prov:wasGeneratedBy :Session_042 ;
+    prov:generatedAtTime "2026-04-12T14:41:02Z"^^xsd:dateTime .
+
+:Session_042_msg5 a aleph:ChatMessage ;
+    aleph:position 5 ; aleph:speaker "agent" ;
+    aleph:hint "insight" ;
+    aleph:body "Linked. :GameTheory skos:related :InformationTheory. Note the bridge: both formalize uncertainty under constraint — that's why your earlier note on Shannon resonates here." ;
+    prov:wasGeneratedBy :Session_042 ;
+    prov:generatedAtTime "2026-04-12T14:41:38Z"^^xsd:dateTime .
+
+#################################################################
+# View — the captured "Point" answer state
+#################################################################
+:View_gt_to_biology a aleph:View ;
+    rdfs:label "How does game theory reach biology?"@en ;
+    aleph:question "How does game theory reach biology?" ;
+    aleph:trail ( "Strategy & Games" "Mathematics" "Logic" ) ;
+    aleph:path  ( :GameTheory :EvolutionaryGameTheory :Evolution ) ;
+
+    aleph:edgeNote [
+        aleph:from :GameTheory ; aleph:to :EvolutionaryGameTheory ;
+        rdfs:label "narrows to" ;
+        aleph:cite "session 035" ] ;
+    aleph:edgeNote [
+        aleph:from :EvolutionaryGameTheory ; aleph:to :Evolution ;
+        rdfs:label "shares assumptions with" ;
+        aleph:cite "session 042" ] ;
+
+    aleph:pathNote [
+        aleph:atConcept :EvolutionaryGameTheory ;
+        aleph:noteText "EGT replaces \"rational agent\" with\n\"replicating strategy.\"" ] ;
+    aleph:pathNote [
+        aleph:atConcept :Evolution ;
+        aleph:noteText "ESS (Maynard Smith, 1973) is the\nbridge term. Citable." ] ;
+
+    aleph:suggestion [ aleph:target :ESS         ; aleph:reason "follows from path" ] ;
+    aleph:suggestion [ aleph:target :Cooperation ; aleph:reason "related to PD" ] ;
+    aleph:suggestion [ aleph:target :JohnNash    ; aleph:reason "authored equilibrium" ] ;
+
+    prov:wasGeneratedBy :Session_042 ;
+    prov:generatedAtTime "2026-04-12T14:48:09Z"^^xsd:dateTime .
+
+#################################################################
+# SHACL run capture — surface for the CardBody "SHACL" tile
+#################################################################
+:ShaclRun_Session_042 a aleph:ShaclResult ;
+    prov:wasGeneratedBy :Session_042 ;
+    prov:generatedAtTime "2026-04-12T14:49:00Z"^^xsd:dateTime ;
+    aleph:result
+        [ aleph:shape aleph:ConceptShape ;
+          aleph:status "pass" ;
+          aleph:detail "all required properties present" ] ,
+        [ aleph:shape aleph:ImportantConceptShape ;
+          aleph:status "pass" ;
+          aleph:detail "perceivedImportance >= 0.7" ] ,
+        [ aleph:shape aleph:SessionShape ;
+          aleph:status "pass" ;
+          aleph:detail "chain verified to Session_042" ;
+          rdfs:label "ProvenanceChainShape" ] ,
+        [ aleph:shape aleph:DerivedFromShape ;
+          aleph:status "warn" ;
+          aleph:detail "1 derivedFrom target missing foaf:Person type" ] .

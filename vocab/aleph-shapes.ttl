@@ -1,0 +1,127 @@
+@prefix sh:    <http://www.w3.org/ns/shacl#> .
+@prefix aleph: <https://vocab.aleph.wiki/> .
+@prefix prov:  <http://www.w3.org/ns/prov#> .
+@prefix skos:  <http://www.w3.org/2004/02/skos/core#> .
+@prefix foaf:  <http://xmlns.com/foaf/0.1/> .
+@prefix rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .
+
+<https://vocab.aleph.wiki/shapes> a sh:ShapesGraph ;
+    rdfs:label "Aleph Wiki SHACL Shapes"@en ;
+    rdfs:comment "Provenance + integrity constraints for the aleph.wiki knowledge graph."@en .
+
+#################################################################
+# ConceptShape — every Concept traces back to a session
+#################################################################
+aleph:ConceptShape a sh:NodeShape ;
+    sh:targetClass aleph:Concept ;
+    rdfs:label "Concept Shape"@en ;
+
+    sh:property [
+        sh:path prov:wasGeneratedBy ;
+        sh:minCount 1 ; sh:maxCount 1 ;
+        sh:class aleph:AlephSession ;
+        sh:message "Concept must have exactly one prov:wasGeneratedBy → aleph:AlephSession" ;
+        sh:severity sh:Violation ] ;
+
+    sh:property [
+        sh:path prov:generatedAtTime ;
+        sh:minCount 1 ; sh:maxCount 1 ;
+        sh:datatype xsd:dateTime ;
+        sh:severity sh:Violation ] ;
+
+    sh:property [
+        sh:path skos:prefLabel ;
+        sh:minCount 1 ;
+        sh:datatype rdf:langString ;
+        sh:severity sh:Warning ] ;
+
+    sh:property [
+        sh:path prov:wasAttributedTo ;
+        sh:maxCount 1 ;
+        sh:class prov:Agent ;
+        sh:severity sh:Info ] .
+
+#################################################################
+# ImportantConceptShape — assertion is consistent with importance
+#################################################################
+aleph:ImportantConceptShape a sh:NodeShape ;
+    sh:targetClass aleph:ImportantConcept ;
+    rdfs:label "Important Concept Shape"@en ;
+
+    sh:property [
+        sh:path aleph:perceivedImportance ;
+        sh:minCount 1 ;
+        sh:datatype xsd:decimal ;
+        sh:minInclusive 0.7 ;
+        sh:message "ImportantConcept requires aleph:perceivedImportance >= 0.7" ;
+        sh:severity sh:Violation ] .
+
+#################################################################
+# SessionShape — temporal + agent bookkeeping
+#################################################################
+aleph:SessionShape a sh:NodeShape ;
+    sh:targetClass aleph:AlephSession ;
+    rdfs:label "Session Shape"@en ;
+
+    sh:property [
+        sh:path prov:startedAtTime ;
+        sh:minCount 1 ; sh:maxCount 1 ;
+        sh:datatype xsd:dateTime ;
+        sh:severity sh:Violation ] ;
+
+    sh:property [
+        sh:path prov:endedAtTime ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:dateTime ;
+        sh:severity sh:Warning ] ;
+
+    sh:property [
+        sh:path prov:wasAssociatedWith ;
+        sh:minCount 1 ;
+        sh:class prov:Agent ;
+        sh:severity sh:Violation ] ;
+
+    sh:sparql [
+        sh:message "Session endedAtTime must be after startedAtTime" ;
+        sh:prefixes <https://vocab.aleph.wiki/> ;
+        sh:select """
+            PREFIX prov: <http://www.w3.org/ns/prov#>
+            SELECT $this WHERE {
+              $this prov:startedAtTime ?s ;
+                    prov:endedAtTime ?e .
+              FILTER (?e <= ?s)
+            }
+        """ ] .
+
+#################################################################
+# DerivedFromShape — derived-from target should be a Person
+#################################################################
+aleph:DerivedFromShape a sh:NodeShape ;
+    sh:targetSubjectsOf aleph:derivedFrom ;
+    rdfs:label "Derived-From Shape"@en ;
+
+    sh:property [
+        sh:path aleph:derivedFrom ;
+        sh:class foaf:Person ;
+        sh:message "aleph:derivedFrom target should be a foaf:Person" ;
+        sh:severity sh:Warning ] .
+
+#################################################################
+# AgentShape — agents are labelled; software agents declare operator
+#################################################################
+aleph:AgentShape a sh:NodeShape ;
+    sh:targetClass prov:SoftwareAgent ;
+    rdfs:label "Software Agent Shape"@en ;
+
+    sh:property [
+        sh:path rdfs:label ;
+        sh:minCount 1 ;
+        sh:severity sh:Warning ] ;
+
+    sh:property [
+        sh:path prov:actedOnBehalfOf ;
+        sh:minCount 1 ;
+        sh:class foaf:Person ;
+        sh:severity sh:Info ] .
