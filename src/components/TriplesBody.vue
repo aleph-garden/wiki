@@ -151,5 +151,5 @@ const colorOf = (cls: Tok): string => {
         </div>
       </div>
     </div>
-  </section>
+  </PageLayout>
 </template>
