@@ -64,7 +64,14 @@ export interface DemoGraph {
   sessions: DemoSession[];
   activeSession: string;    // sessions whose generatedBy is "highlighted"
   pretty: (predicate: string) => string;
+  raw: string;              // verbatim TTL source
+  source: string;           // human-friendly filename
+  tripleCount: number;      // number of parsed quads
+  byteSize: number;         // utf-8 byte length of raw
 }
+
+export const DEMO_TTL_SOURCE = 'demo-game-theory.ttl';
+export const DEMO_TTL_RAW = demoTtl;
 
 // ── prefix table — mirrors the TTL @prefix block ────────────
 const PREFIXES: Record<string, string> = {
@@ -298,13 +305,18 @@ export function loadDemoGraph(): DemoGraph {
   }
   sessions.sort((a, b) => b.startedAt.localeCompare(a.startedAt));
 
-  cached = {
+  const graph: DemoGraph = {
     nodes: [...nodeMap.values()],
     edges,
     view,
     sessions,
     activeSession: 'Session_042',
     pretty: (p) => PRETTY_PREDICATE[shrink(p)] ?? shrink(p),
+    raw: demoTtl,
+    source: DEMO_TTL_SOURCE,
+    tripleCount: quads.length,
+    byteSize: new TextEncoder().encode(demoTtl).length,
   };
-  return cached;
+  cached = graph;
+  return graph;
 }

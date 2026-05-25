@@ -1,8 +1,10 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import type { Palette } from '../palette';
+import { loadDemoGraph } from '../lib/ttl';
 import ConceptHeader from './ConceptHeader.vue';
 
-defineProps<{
+const props = defineProps<{
   palette: Palette;
   fontUI: string;
   fontMono: string;
@@ -12,38 +14,63 @@ defineProps<{
   dense: boolean;
 }>();
 
-const turtle = `@prefix     :  <https://alice.solid/pod/concepts#> .
-@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
-@prefix prov: <http://www.w3.org/ns/prov#> .
-@prefix foaf: <http://xmlns.com/foaf/0.1/> .
-@prefix aleph: <https://aleph.wiki/ontology#> .
+const graph = loadDemoGraph();
 
-:GameTheory
-    a                 skos:Concept, aleph:ImportantConcept ;
-    skos:prefLabel    "Game Theory"@en ;
-    skos:altLabel     "Theory of games"@en ;
-    skos:definition   "The mathematical study of strategic
-                       interaction among rational agents."@en ;
-    aleph:perceivedImportance  0.95 ;
-    aleph:derivedFrom  :JohnVonNeumann ;
-    aleph:requires     :Rationality ;
-    skos:related       :InformationTheory ;
-    prov:wasGeneratedBy :Session_042 ;
-    prov:generatedAtTime "2026-04-12T14:23:01Z"^^xsd:dateTime .
+type Tok = 'comment' | 'directive' | 'iri' | 'literal' | 'prefixed' | 'number' | 'keyword' | 'punct' | 'plain';
+interface Token { text: string; cls: Tok }
 
-:NashEquilibrium
-    a                 skos:Concept ;
-    skos:broader      :GameTheory ;
-    prov:wasAttributedTo :JohnNash .
+const TOKENIZE_RE =
+  /(#[^\n]*)|(@\w+)|(<[^>]*>)|("(?:[^"\\]|\\.)*"(?:@[A-Za-z-]+|\^\^\S+)?)|((?:[A-Za-z_][\w-]*)?:[A-Za-z_][\w_-]*)|(\b\d+\.\d+\b|\b\d+\b)|(\ba\b)|([;,.[\]()])/g;
 
-:PrisonersDilemma
-    a                 skos:Concept ;
-    skos:broader      :GameTheory ;
-    skos:related      :Cooperation .
+function tokenize(src: string): Token[] {
+  const tokens: Token[] = [];
+  let last = 0;
+  let m: RegExpExecArray | null;
+  // RegExp objects keep `lastIndex`; reset per call.
+  const re = new RegExp(TOKENIZE_RE.source, 'g');
+  while ((m = re.exec(src)) !== null) {
+    if (m.index > last) tokens.push({ text: src.slice(last, m.index), cls: 'plain' });
+    let cls: Tok = 'plain';
+    if (m[1]) cls = 'comment';
+    else if (m[2]) cls = 'directive';
+    else if (m[3]) cls = 'iri';
+    else if (m[4]) cls = 'literal';
+    else if (m[5]) cls = 'prefixed';
+    else if (m[6]) cls = 'number';
+    else if (m[7]) cls = 'keyword';
+    else if (m[8]) cls = 'punct';
+    tokens.push({ text: m[0], cls });
+    last = m.index + m[0].length;
+  }
+  if (last < src.length) tokens.push({ text: src.slice(last), cls: 'plain' });
+  return tokens;
+}
 
-:ColdWar
-    a                 schema:Event ;
-    aleph:exemplifies :GameTheory .`;
+const lines = computed(() =>
+  graph.raw.split('\n').map((line, i) => ({ n: i + 1, tokens: tokenize(line) })),
+);
+
+const gutterWidth = computed(() => String(lines.value.length).length * 8 + 18 + 'px');
+
+const sizeLabel = computed(() => {
+  const b = graph.byteSize;
+  return b >= 1024 ? (b / 1024).toFixed(1) + ' kb' : b + ' b';
+});
+
+const colorOf = (cls: Tok): string => {
+  const p = props.palette;
+  switch (cls) {
+    case 'comment':   return p.mute;
+    case 'directive': return p.sage;
+    case 'iri':       return p.cool;
+    case 'literal':   return p.leaf;
+    case 'number':    return p.hot;
+    case 'keyword':   return p.aleph;
+    case 'punct':     return p.mute;
+    case 'prefixed':  return p.fg;
+    default:          return p.fg;
+  }
+};
 </script>
 
 <template>
@@ -63,6 +90,7 @@ const turtle = `@prefix     :  <https://alice.solid/pod/concepts#> .
     <div
       :style="{
         flex: 1,
+        minHeight: 0,
         background: palette.panel,
         border: `1px solid ${palette.rule}`,
         borderRadius: '4px',
@@ -83,23 +111,55 @@ const turtle = `@prefix     :  <https://alice.solid/pod/concepts#> .
           fontWeight: 600,
           display: 'flex',
           justifyContent: 'space-between',
+          gap: '12px',
         }"
       >
-        <span>index.ttl — Turtle 1.1</span>
-        <span>5.2 kb · 11 triples</span>
+        <span>{{ graph.source }} — Turtle 1.1</span>
+        <span>{{ sizeLabel }} · {{ graph.tripleCount }} triples · {{ graph.nodes.length }} nodes</span>
       </div>
-      <pre
+      <div
         :style="{
-          margin: 0,
-          padding: '14px 20px',
           flex: 1,
+          overflow: 'auto',
           fontFamily: fontMono,
           fontSize: '12.5px',
           lineHeight: 1.6,
           color: palette.fg,
-          overflow: 'auto',
         }"
-      >{{ turtle }}</pre>
+      >
+        <div
+          v-for="row in lines" :key="row.n"
+          :style="{
+            display: 'grid',
+            gridTemplateColumns: `${gutterWidth} 1fr`,
+            alignItems: 'baseline',
+            paddingRight: '20px',
+          }"
+        >
+          <span
+            :style="{
+              textAlign: 'right',
+              paddingRight: '12px',
+              color: palette.mute,
+              opacity: 0.45,
+              fontSize: '10.5px',
+              userSelect: 'none',
+              borderRight: `1px solid ${palette.rule}`,
+            }"
+          >{{ row.n }}</span>
+          <span :style="{ whiteSpace: 'pre', paddingLeft: '14px' }">
+            <span
+              v-for="(t, i) in row.tokens" :key="i"
+              :style="{
+                color: colorOf(t.cls),
+                fontStyle: t.cls === 'literal' ? 'italic' : 'normal',
+                fontWeight: t.cls === 'keyword' || t.cls === 'directive' ? 600 : 400,
+                opacity: t.cls === 'comment' ? 0.55 : 1,
+              }"
+            >{{ t.text }}</span>
+          </span>
+        </div>
+      </div>
     </div>
   </section>
 </template>
