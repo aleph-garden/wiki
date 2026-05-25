@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onMounted, onBeforeUnmount, ref } from 'vue';
 import {
   getPalette, proseFont, FONT_UI, FONT_MONO,
   type ThemeName, type Typeface,
@@ -12,7 +12,6 @@ import AlephConsole from './AlephConsole.vue';
 import FloatingNarrator from './FloatingNarrator.vue';
 import CardBody from './CardBody.vue';
 import PointBody from './PointBody.vue';
-import GraphBody from './GraphBody.vue';
 import TriplesBody from './TriplesBody.vue';
 
 const props = withDefaults(defineProps<{
@@ -40,12 +39,37 @@ const dense = computed(() => props.density === 'compact');
 const chatLeft = computed(() => props.layout === 'left-rail');
 const overlay = computed(() => props.layout === 'overlay');
 
-const W = 1440, H = 900;
+const CHROME_H = 44;
+const FOOTER_H = 28;
+
+// ── live viewport tracking ──
+const root = ref<HTMLElement | null>(null);
+const vw = ref(window.innerWidth);
+const vh = ref(window.innerHeight);
+
+let ro: ResizeObserver | null = null;
+onMounted(() => {
+  if (root.value) {
+    ro = new ResizeObserver((entries) => {
+      const r = entries[0].contentRect;
+      vw.value = r.width;
+      vh.value = r.height;
+    });
+    ro.observe(root.value);
+  }
+});
+onBeforeUnmount(() => ro?.disconnect());
+
 const railW = computed(() => isPoint.value ? 56 : 240);
 const consoleW = computed(() =>
-  isPoint.value || overlay.value ? 0 : 380
+  isPoint.value || overlay.value ? 0 : Math.min(380, Math.max(280, vw.value * 0.26))
 );
-const centerW = computed(() => W - railW.value - consoleW.value);
+const centerW = computed(() =>
+  Math.max(320, vw.value - railW.value - consoleW.value)
+);
+const centerH = computed(() =>
+  Math.max(360, vh.value - CHROME_H - FOOTER_H)
+);
 
 const narratorSide = computed(() =>
   isPoint.value ? (chatLeft.value ? 'left' : 'right') : undefined
@@ -54,16 +78,16 @@ const narratorSide = computed(() =>
 
 <template>
   <div
+    ref="root"
     :style="{
-      width: W + 'px',
-      height: H + 'px',
+      width: '100vw',
+      height: '100vh',
       position: 'relative',
       overflow: 'hidden',
       background: skin.bg,
       color: skin.fg,
       fontFamily: FONT_UI,
       transition: 'background 220ms ease, color 220ms ease',
-      boxShadow: '0 12px 40px rgba(0,0,0,0.18)',
     }"
   >
     <AlephChrome
@@ -77,8 +101,8 @@ const narratorSide = computed(() =>
     <div
       :style="{
         position: 'absolute',
-        top: '44px',
-        bottom: '28px',
+        top: CHROME_H + 'px',
+        bottom: FOOTER_H + 'px',
         left: 0,
         right: 0,
         display: 'flex',
@@ -93,22 +117,17 @@ const narratorSide = computed(() =>
       <CardBody
         v-if="mode === 'card'"
         :palette="skin" :font-ui="FONT_UI" :font-mono="FONT_MONO" :font-prose="fontProse"
-        :width="centerW" :dense="dense"
+        :width="centerW" :height="centerH" :dense="dense"
       />
       <PointBody
         v-else-if="mode === 'point'"
         :palette="skin" :font-ui="FONT_UI" :font-mono="FONT_MONO" :font-prose="fontProse"
-        :width="centerW" :dense="dense" :narrator-side="narratorSide"
-      />
-      <GraphBody
-        v-else-if="mode === 'graph'"
-        :palette="skin" :font-ui="FONT_UI" :font-mono="FONT_MONO" :font-prose="fontProse"
-        :width="centerW" :dense="dense"
+        :width="centerW" :height="centerH" :dense="dense" :narrator-side="narratorSide"
       />
       <TriplesBody
         v-else
         :palette="skin" :font-ui="FONT_UI" :font-mono="FONT_MONO" :font-prose="fontProse"
-        :width="centerW" :dense="dense"
+        :width="centerW" :height="centerH" :dense="dense"
       />
 
       <AlephLibrary

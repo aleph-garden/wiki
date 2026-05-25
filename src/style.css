@@ -1,8 +1,10 @@
-html, body {
+html, body, #app {
   margin: 0;
   padding: 0;
   background: #f0eee9;
+  height: 100%;
   min-height: 100vh;
+  overflow: hidden;
 }
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;

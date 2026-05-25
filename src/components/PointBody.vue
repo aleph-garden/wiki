@@ -11,6 +11,7 @@ const props = defineProps<{
   fontMono: string;
   fontProse: string;
   width: number;
+  height: number;
   dense: boolean;
   narratorSide?: 'left' | 'right';
 }>();
@@ -35,7 +36,14 @@ const suggested = [
 
 const session042 = new Set(['gt','ne','pd','egt','md','it','nash','jvn','rat']);
 
-const H = 828;
+// ── responsive scaling ──
+// Design baseline: width=1384, height=828, orbits 150/250/350, trail 440.
+// Scale uniformly to available space, clamped so the layout stays readable.
+const H = computed(() => props.height);
+const scale = computed(() => {
+  const s = Math.min(props.width / 1384, props.height / 828);
+  return Math.max(0.55, Math.min(1.4, s));
+});
 
 // ── starfield (deterministic) ──
 const stars = computed(() => {
@@ -45,10 +53,11 @@ const stars = computed(() => {
     s = (s * 1103515245 + 12345) & 0x7fffffff;
     return s / 0x7fffffff;
   };
-  for (let i = 0; i < 220; i++) {
+  const count = Math.round(220 * Math.max(0.4, (props.width * H.value) / (1384 * 828)));
+  for (let i = 0; i < count; i++) {
     out.push({
       x: rng() * props.width,
-      y: rng() * H,
+      y: rng() * H.value,
       r: rng() * 1.2 + 0.2,
       op: rng() * 0.6 + 0.1,
     });
@@ -58,19 +67,20 @@ const stars = computed(() => {
 
 // ── orbital layout ──
 const cx = computed(() => props.width / 2);
-const cy = 380;
+// Bias slightly upward so the speak bar at the bottom has breathing room.
+const cy = computed(() => H.value * 0.46);
 
-const orbits = [
-  { r: 150, dash: '2 6', stroke: 0.7 },
-  { r: 250, dash: '2 6', stroke: 0.7 },
-  { r: 350, dash: '1 8', stroke: 0.5 },
-];
+const orbits = computed(() => [
+  { r: 150 * scale.value, dash: '2 6', stroke: 0.7 },
+  { r: 250 * scale.value, dash: '2 6', stroke: 0.7 },
+  { r: 350 * scale.value, dash: '1 8', stroke: 0.5 },
+]);
 
-const orbitLabels = [
-  { r: orbits[0].r, label: '— specialisations —', angle: -Math.PI / 2 - 0.18 },
-  { r: orbits[1].r, label: '— direct relations —', angle: -Math.PI / 2 - 0.15 },
-  { r: orbits[2].r, label: '— two steps out —',   angle: -Math.PI / 2 - 0.12 },
-];
+const orbitLabels = computed(() => [
+  { r: orbits.value[0].r, label: '— specialisations —', angle: -Math.PI / 2 - 0.18 },
+  { r: orbits.value[1].r, label: '— direct relations —', angle: -Math.PI / 2 - 0.15 },
+  { r: orbits.value[2].r, label: '— two steps out —',   angle: -Math.PI / 2 - 0.12 },
+]);
 
 const trail = [
   { label: 'Strategy & Games', angle:  Math.PI * 0.65 },
@@ -102,18 +112,18 @@ const placed = computed<Placed[]>(() => {
     });
 
   return [
-    ...distribute(inner,  orbits[0].r, -Math.PI / 2),
-    ...distribute(middle, orbits[1].r, -Math.PI / 2 + 0.6),
-    ...distribute(outer,  orbits[2].r, -Math.PI / 2 - 0.4),
+    ...distribute(inner,  orbits.value[0].r, -Math.PI / 2),
+    ...distribute(middle, orbits.value[1].r, -Math.PI / 2 + 0.6),
+    ...distribute(outer,  orbits.value[2].r, -Math.PI / 2 - 0.4),
   ];
 });
 
 function place(id: string): [number, number] {
-  if (id === 'gt') return [cx.value, cy];
+  if (id === 'gt') return [cx.value, cy.value];
   const p = placed.value.find((n) => n.id === id);
   return p
-    ? [cx.value + Math.cos(p.angle) * p.radius, cy + Math.sin(p.angle) * p.radius]
-    : [cx.value, cy];
+    ? [cx.value + Math.cos(p.angle) * p.radius, cy.value + Math.sin(p.angle) * p.radius]
+    : [cx.value, cy.value];
 }
 
 const labelLeft = computed(() => {
@@ -151,7 +161,7 @@ interface RenderedNode {
 const renderedNodes = computed<RenderedNode[]>(() => {
   return placed.value.map((n) => {
     const x = cx.value + Math.cos(n.angle) * n.radius;
-    const y = cy + Math.sin(n.angle) * n.radius;
+    const y = cy.value + Math.sin(n.angle) * n.radius;
     const r = 2.5 + n.importance * 5;
     const color = n.kind === 'person' ? props.palette.cool
                 : n.kind === 'event'  ? props.palette.hot
@@ -222,35 +232,51 @@ const pathNoteAnchors = computed(() =>
     const p = placed.value.find((n) => n.id === note.atId);
     if (!p) return null;
     const x = cx.value + Math.cos(p.angle) * p.radius;
-    const y = cy + Math.sin(p.angle) * p.radius;
+    const y = cy.value + Math.sin(p.angle) * p.radius;
     const ox = x + Math.cos(p.angle) * 60;
     const oy = y + Math.sin(p.angle) * 60;
     return { ...note, ox, oy, step: i + 2 };
   }).filter(Boolean) as Array<{ atId: string; text: string; ox: number; oy: number; step: number }>
 );
 
+const trailR = computed(() => 440 * scale.value);
+const core = computed(() => ({
+  haloR:     240 * scale.value,
+  ring1R:     78 * scale.value,
+  ring2R:     60 * scale.value,
+  hotR:      3.4 * scale.value,
+  hotHaloR:   12 * scale.value,
+  glyphSize: 180 * scale.value,
+  glyphYOff:  56 * scale.value,
+  nameSize:   22 * scale.value,
+  nameYOff:   96 * scale.value,
+  metaYOff:  116 * scale.value,
+}));
+const trailInnerR = computed(() => 350 * scale.value);
+
 const trailMarkers = computed(() => {
-  const R = 440;
+  const R = trailR.value;
   return trail.map((t, i) => {
     const x = cx.value + Math.cos(t.angle) * R;
-    const y = cy + Math.sin(t.angle) * R;
+    const y = cy.value + Math.sin(t.angle) * R;
     const opacity = 0.2 + (i / trail.length) * 0.3;
     return { ...t, x, y, opacity };
   });
 });
 
 const trailPath = computed(() => {
-  const R = 440;
-  return `M ${cx.value + Math.cos(trail[0].angle) * 350} ${cy + Math.sin(trail[0].angle) * 350}
-          Q ${cx.value + Math.cos(trail[1].angle) * R} ${cy + Math.sin(trail[1].angle) * R}
-          ${cx.value + Math.cos(trail[trail.length - 1].angle) * R} ${cy + Math.sin(trail[trail.length - 1].angle) * R}`;
+  const R = trailR.value;
+  const innerR = trailInnerR.value;
+  return `M ${cx.value + Math.cos(trail[0].angle) * innerR} ${cy.value + Math.sin(trail[0].angle) * innerR}
+          Q ${cx.value + Math.cos(trail[1].angle) * R} ${cy.value + Math.sin(trail[1].angle) * R}
+          ${cx.value + Math.cos(trail[trail.length - 1].angle) * R} ${cy.value + Math.sin(trail[trail.length - 1].angle) * R}`;
 });
 
 const orbitLabelCoords = computed(() =>
-  orbitLabels.map((rl) => ({
+  orbitLabels.value.map((rl) => ({
     ...rl,
     tx: cx.value + Math.cos(rl.angle) * rl.r,
-    ty: cy + Math.sin(rl.angle) * rl.r,
+    ty: cy.value + Math.sin(rl.angle) * rl.r,
   }))
 );
 
@@ -258,7 +284,7 @@ const spokes = computed(() =>
   placed.value.map((n) => ({
     id: n.id,
     x2: cx.value + Math.cos(n.angle) * n.radius,
-    y2: cy + Math.sin(n.angle) * n.radius,
+    y2: cy.value + Math.sin(n.angle) * n.radius,
   }))
 );
 
@@ -306,7 +332,7 @@ function labelOf(id: string) {
       </defs>
 
       <!-- halo -->
-      <circle :cx="cx" :cy="cy" r="240" fill="url(#aleph-core)" />
+      <circle :cx="cx" :cy="cy" :r="core.haloR" fill="url(#aleph-core)" />
 
       <!-- orbits -->
       <circle
@@ -352,29 +378,29 @@ function labelOf(id: string) {
 
       <!-- central aleph core -->
       <g>
-        <circle :cx="cx" :cy="cy" r="78" fill="none"
+        <circle :cx="cx" :cy="cy" :r="core.ring1R" fill="none"
           :stroke="palette.aleph" stroke-width="0.6" opacity="0.15" />
-        <circle :cx="cx" :cy="cy" r="60" fill="none"
+        <circle :cx="cx" :cy="cy" :r="core.ring2R" fill="none"
           :stroke="palette.aleph" stroke-width="0.5" opacity="0.22" />
-        <text :x="cx" :y="cy + 56"
+        <text :x="cx" :y="cy + core.glyphYOff"
           text-anchor="middle"
-          font-size="180"
+          :font-size="core.glyphSize"
           font-family='"Fraunces", "Cormorant Garamond", serif'
           :fill="palette.aleph"
         >א</text>
-        <circle :cx="cx" :cy="cy" r="3.4" :fill="palette.hot" />
-        <circle :cx="cx" :cy="cy" r="3.4" :fill="palette.hot" opacity="0.6"
+        <circle :cx="cx" :cy="cy" :r="core.hotR" :fill="palette.hot" />
+        <circle :cx="cx" :cy="cy" :r="core.hotR" :fill="palette.hot" opacity="0.6"
           :style="{ filter: 'blur(5px)' }" />
-        <circle :cx="cx" :cy="cy" r="12" fill="none"
+        <circle :cx="cx" :cy="cy" :r="core.hotHaloR" fill="none"
           :stroke="palette.hot" stroke-width="0.5" opacity="0.4" />
-        <text :x="cx" :y="cy + 96"
+        <text :x="cx" :y="cy + core.nameYOff"
           text-anchor="middle"
-          font-size="22" font-weight="500"
+          :font-size="core.nameSize" font-weight="500"
           font-family='"Fraunces", "Cormorant Garamond", serif'
           font-style="italic" letter-spacing="0.5"
           :fill="palette.fg"
         >— Game Theory —</text>
-        <text :x="cx" :y="cy + 116"
+        <text :x="cx" :y="cy + core.metaYOff"
           text-anchor="middle"
           font-size="9.5" letter-spacing="1.5"
           :font-family="fontMono" :fill="palette.mute"

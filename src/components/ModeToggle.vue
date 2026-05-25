@@ -9,7 +9,6 @@ const emit = defineEmits<{ (e: 'update:mode', m: Mode): void }>();
 const modes: { id: Mode; icon: string; label: string }[] = [
   { id: 'point',   icon: 'א', label: 'point' },
   { id: 'card',    icon: '◉', label: 'card' },
-  { id: 'graph',   icon: '⋈', label: 'graph' },
   { id: 'triples', icon: '≡', label: 'triples' },
 ];
 

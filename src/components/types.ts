@@ -1,1 +1,1 @@
-export type Mode = 'point' | 'card' | 'graph' | 'triples';
+export type Mode = 'point' | 'card' | 'triples';

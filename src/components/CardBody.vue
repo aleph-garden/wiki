@@ -12,6 +12,7 @@ const props = defineProps<{
   fontMono: string;
   fontProse: string;
   width: number;
+  height: number;
   dense: boolean;
 }>();
 
