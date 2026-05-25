@@ -3,6 +3,7 @@ import { computed } from 'vue';
 import type { Palette } from '../palette';
 import { FONT_UI as SANS } from '../palette';
 import { loadDemoGraph, type FocusTriple, type Backlink, type NodeKind } from '../lib/ttl';
+import { navigate } from '../lib/router';
 import ConceptHeader from './ConceptHeader.vue';
 import PageLayout from './PageLayout.vue';
 import Schematic from './Schematic.vue';
@@ -15,11 +16,26 @@ const props = defineProps<{
   width: number;
   height: number;
   dense: boolean;
+  focusCurie?: string | null;
+  selectedPred?: string | null;
 }>();
 
 const graph = loadDemoGraph();
 
-const focusTriples = computed(() => graph.triplesFor(graph.focusId));
+const effectiveFocus = computed(() => {
+  const c = props.focusCurie;
+  if (!c) return graph.focusId;
+  return c.startsWith(':') ? c.slice(1) : c;
+});
+
+const focusTriples = computed(() => graph.triplesFor(effectiveFocus.value));
+
+function selectPredicate(predCurie: string) {
+  navigate({ mode: 'card', focusCurie: ':' + effectiveFocus.value, predCurie });
+}
+function openIri(curie: string) {
+  navigate({ mode: 'card', focusCurie: curie, predCurie: null });
+}
 
 interface Group { label: string; items: FocusTriple[] }
 
@@ -44,7 +60,7 @@ const groups = computed<Group[]>(() => {
   ].filter((g) => g.items.length > 0);
 });
 
-const backlinks = computed(() => graph.backlinksFor(graph.focusId));
+const backlinks = computed(() => graph.backlinksFor(effectiveFocus.value));
 
 function backColor(k: NodeKind) {
   if (k === 'person') return props.palette.kindPerson;
@@ -123,7 +139,7 @@ const shaclTotal = computed(() => graph.shacl.length);
               </span>
             </div>
           </div>
-          <Schematic :palette="palette" :font-ui="fontUI" :font-mono="fontMono" :hilite="graph.focusId" />
+          <Schematic :palette="palette" :font-ui="fontUI" :font-mono="fontMono" :hilite="effectiveFocus" />
         </div>
 
         <!-- triples card -->
@@ -154,7 +170,7 @@ const shaclTotal = computed(() => graph.shacl.length);
               fontWeight: 600,
             }"
           >
-            <span>Triples — :{{ graph.focusId }} ?p ?o</span>
+            <span>Triples — :{{ effectiveFocus }} ?p ?o</span>
             <span style="display: flex; gap: 8px">
               <span
                 :style="{
@@ -212,8 +228,34 @@ const shaclTotal = computed(() => graph.shacl.length);
                 :key="i"
                 style="display: grid; grid-template-columns: 170px 1fr; gap: 14px; padding: 1px 0"
               >
-                <span :style="{ color: palette.accent, fontWeight: 500 }">{{ tr.predicate }}</span>
-                <span :style="{ color: tripleColor(tr.kind), wordBreak: 'break-word' }">{{ tr.object }}</span>
+                <span
+                  :style="{
+                    color: palette.accent,
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                    borderBottom: `1px dashed ${palette.accent}55`,
+                    background: selectedPred === tr.predicate ? `${palette.accent}1a` : 'transparent',
+                    padding: selectedPred === tr.predicate ? '1px 4px' : '0',
+                    marginLeft: selectedPred === tr.predicate ? '-4px' : '0',
+                    borderRadius: '2px',
+                    justifySelf: 'start',
+                  }"
+                  @click="selectPredicate(tr.predicate)"
+                >{{ tr.predicate }}</span>
+                <span
+                  v-if="tr.kind === 'iri' || tr.kind === 'type'"
+                  :style="{
+                    color: tripleColor(tr.kind),
+                    wordBreak: 'break-word',
+                    cursor: 'pointer',
+                    borderBottom: `1px dashed ${tripleColor(tr.kind)}55`,
+                  }"
+                  @click="openIri(tr.object)"
+                >{{ tr.object }}</span>
+                <span
+                  v-else
+                  :style="{ color: tripleColor(tr.kind), wordBreak: 'break-word' }"
+                >{{ tr.object }}</span>
               </div>
             </div>
           </div>

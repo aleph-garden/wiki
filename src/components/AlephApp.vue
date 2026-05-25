@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, onBeforeUnmount, ref } from 'vue';
+import { computed, onBeforeMount, onMounted, onBeforeUnmount, ref } from 'vue';
 import {
   getPalette, proseFont, FONT_UI, FONT_MONO,
   type ThemeName, type Typeface,
 } from '../palette';
 import type { Mode } from './types';
+import { current as route, navigate, installRouter } from '../lib/router';
 import AlephChrome from './AlephChrome.vue';
 import AlephStatusBar from './AlephStatusBar.vue';
 import AlephLibrary from './AlephLibrary.vue';
@@ -28,7 +29,11 @@ const props = withDefaults(defineProps<{
   layout: 'right-rail',
 });
 
-const mode = ref<Mode>(props.initialMode);
+onBeforeMount(() => installRouter({ mode: props.initialMode }));
+const mode = computed<Mode>({
+  get: () => route.mode,
+  set: (m) => navigate({ mode: m }),
+});
 const isPoint = computed(() => mode.value === 'point');
 
 const palette = computed(() => getPalette(props.theme));
@@ -118,6 +123,8 @@ const narratorSide = computed(() =>
         v-if="mode === 'card'"
         :palette="skin" :font-ui="FONT_UI" :font-mono="FONT_MONO" :font-prose="fontProse"
         :width="centerW" :height="centerH" :dense="dense"
+        :focus-curie="route.focusCurie"
+        :selected-pred="route.predCurie"
       />
       <PointBody
         v-else-if="mode === 'point'"
