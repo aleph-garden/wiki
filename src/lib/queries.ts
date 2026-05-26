@@ -376,7 +376,7 @@ export function useViewSuggestions(): Ref<ViewSuggestion[]> {
 export function useChat(): Ref<ChatMessage[]> {
   return computed(() => {
     const rows = select(render('chat'));
-    return rows.map<ChatMessage>((row) => {
+    const all = rows.map<ChatMessage>((row) => {
       const speakerRaw = row.get('speaker')?.value ?? 'agent';
       const sessionIri = row.get('session')!.value;
       return {
@@ -389,6 +389,10 @@ export function useChat(): Ref<ChatMessage[]> {
         session: localName(sessionIri),
       };
     });
+    // Scope to the active session if one is pinned; otherwise show everything
+    // (debug / multi-session aggregate view).
+    const active = selectedSessionId.value;
+    return active ? all.filter((m) => m.session === active) : all;
   });
 }
 
