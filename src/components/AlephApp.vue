@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeMount, onMounted, onBeforeUnmount, ref } from 'vue';
+import { computed, onBeforeMount, onMounted, onBeforeUnmount, ref, watch } from 'vue';
 import {
   getPalette, proseFont, FONT_UI, FONT_MONO,
   type ThemeName, type Typeface,
@@ -30,9 +30,23 @@ const props = withDefaults(defineProps<{
 });
 
 onBeforeMount(() => installRouter({ mode: props.initialMode }));
+
+const hasFocus = computed(() => !!route.focusCurie);
+
+watch(
+  () => [route.mode, route.focusCurie] as const,
+  ([m, f]) => {
+    if (!f && m !== 'point') navigate({ mode: 'point' }, { replace: true });
+  },
+  { immediate: true },
+);
+
 const mode = computed<Mode>({
   get: () => route.mode,
-  set: (m) => navigate({ mode: m }),
+  set: (m) => {
+    if (!hasFocus.value && m !== 'point') return;
+    navigate({ mode: m });
+  },
 });
 const isPoint = computed(() => mode.value === 'point');
 
@@ -97,6 +111,7 @@ const narratorSide = computed(() =>
   >
     <AlephChrome
       :mode="mode"
+      :has-focus="hasFocus"
       :palette="skin"
       :font-ui="FONT_UI"
       :font-mono="FONT_MONO"

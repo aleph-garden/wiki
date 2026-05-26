@@ -6,6 +6,7 @@ import ModeToggle from './ModeToggle.vue';
 
 const props = defineProps<{
   mode: Mode;
+  hasFocus: boolean;
   palette: Palette;
   fontUI: string;
   fontMono: string;
@@ -68,6 +69,7 @@ defineEmits<{ (e: 'update:mode', m: Mode): void }>();
 
     <ModeToggle
       :mode="mode"
+      :has-focus="hasFocus"
       :palette="palette"
       :font-mono="fontMono"
       @update:mode="(m) => $emit('update:mode', m)"

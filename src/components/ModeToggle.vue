@@ -3,7 +3,7 @@ import type { Palette } from '../palette';
 import { FONT_SERIF as SERIF } from '../palette';
 import type { Mode } from './types';
 
-defineProps<{ mode: Mode; palette: Palette; fontMono: string }>();
+const props = defineProps<{ mode: Mode; hasFocus: boolean; palette: Palette; fontMono: string }>();
 const emit = defineEmits<{ (e: 'update:mode', m: Mode): void }>();
 
 const modes: { id: Mode; icon: string; label: string }[] = [
@@ -12,7 +12,14 @@ const modes: { id: Mode; icon: string; label: string }[] = [
   { id: 'triples', icon: '≡', label: 'triples' },
 ];
 
-function pick(m: Mode) { emit('update:mode', m); }
+function isDisabled(m: Mode): boolean {
+  return !props.hasFocus && m !== 'point';
+}
+
+function pick(m: Mode) {
+  if (isDisabled(m)) return;
+  emit('update:mode', m);
+}
 </script>
 
 <template>
@@ -32,12 +39,15 @@ function pick(m: Mode) { emit('update:mode', m); }
       v-for="m in modes"
       :key="m.id"
       @click="pick(m.id)"
+      :disabled="isDisabled(m.id)"
+      :title="isDisabled(m.id) ? 'select a subject first' : ''"
       :style="{
         padding: '5px 12px',
         borderRadius: '3px',
-        cursor: 'pointer',
+        cursor: isDisabled(m.id) ? 'not-allowed' : 'pointer',
         background: m.id === mode ? palette.panel : 'transparent',
         color: m.id === mode ? palette.fg : palette.mute,
+        opacity: isDisabled(m.id) ? 0.4 : 1,
         boxShadow: m.id === mode ? `0 1px 2px ${palette.rule}, 0 0 0 0.5px ${palette.rule}` : 'none',
         display: 'flex',
         alignItems: 'center',
