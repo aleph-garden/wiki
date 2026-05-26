@@ -87,3 +87,31 @@ aleph:cite          a owl:DatatypeProperty ; rdfs:range xsd:string .
 aleph:shape         a owl:ObjectProperty .
 aleph:status        a owl:DatatypeProperty ; rdfs:range xsd:string .  # "pass" | "warn" | "fail"
 aleph:detail        a owl:DatatypeProperty ; rdfs:range xsd:string .
+
+#################################################################
+# Edit + Snapshot (provenance for append-only edit log)
+#################################################################
+
+aleph:Edit a owl:Class ; rdfs:subClassOf prov:Activity ;
+    rdfs:label "Edit"@en ;
+    rdfs:comment "A single write to the pod that produced one or more triples in this resource graph."@en .
+
+aleph:editKind a owl:DatatypeProperty ;
+    rdfs:domain aleph:Edit ; rdfs:range xsd:string ;
+    rdfs:comment "create | amend | retract"@en .
+
+aleph:supersedes a owl:ObjectProperty ;
+    rdfs:domain aleph:Edit ; rdfs:range aleph:Edit ;
+    rdfs:comment "This edit replaces (logically) the target edit."@en .
+
+aleph:Snapshot a owl:Class ; rdfs:subClassOf prov:Entity ;
+    rdfs:label "Canonical session snapshot"@en .
+
+aleph:includesEdits a owl:ObjectProperty ;
+    rdfs:domain aleph:Snapshot ; rdfs:range rdf:List .
+
+aleph:lastCanonicalizedAt a owl:DatatypeProperty ;
+    rdfs:domain aleph:AlephSession ; rdfs:range xsd:dateTime .
+
+aleph:canonicalView a owl:ObjectProperty ;
+    rdfs:domain aleph:AlephSession ; rdfs:range aleph:Snapshot .
