@@ -35,13 +35,23 @@ export class PodClient {
   }
 
   // Like getResource but also surfaces the server's Content-Type so the caller
-  // can pick a matching parser.
+  // can pick a matching parser. Picks the Accept header based on the file
+  // extension so JSS doesn't try (and fail) to serialize a .jsonld file as
+  // turtle for us.
   async getResourceWithType(path: string): Promise<{ body: string; contentType: string } | null> {
-    const res = await fetch(this.url(path), {
-      headers: {
-        Accept: 'text/turtle;q=1.0, application/ld+json;q=0.9, application/n-triples;q=0.8, application/n-quads;q=0.8, application/trig;q=0.7, application/rdf+xml;q=0.6, */*;q=0.1',
-      },
-    });
+    let accept = 'text/turtle;q=1.0, application/ld+json;q=0.9, application/n-triples;q=0.8, application/n-quads;q=0.8, application/trig;q=0.7, application/rdf+xml;q=0.6, */*;q=0.1';
+    if (/\.jsonld$/i.test(path) || /\.json$/i.test(path)) {
+      accept = 'application/ld+json';
+    } else if (/\.nt$/i.test(path)) {
+      accept = 'application/n-triples';
+    } else if (/\.nq$/i.test(path)) {
+      accept = 'application/n-quads';
+    } else if (/\.trig$/i.test(path)) {
+      accept = 'application/trig';
+    } else if (/\.(rdf|xml)$/i.test(path)) {
+      accept = 'application/rdf+xml';
+    }
+    const res = await fetch(this.url(path), { headers: { Accept: accept } });
     if (res.status === 404) return null;
     if (!res.ok) throw new Error(`GET ${path} → ${res.status}`);
     const contentType = (res.headers.get('content-type') ?? 'text/turtle').split(';')[0].trim();
