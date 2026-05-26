@@ -60,19 +60,32 @@ function formatForPath(path: string): string | null {
 }
 
 async function loadResource(s: Store, podClient: PodClient, path: string): Promise<void> {
-  const fetched = await podClient.getResourceWithType(path);
+  let fetched;
+  try {
+    fetched = await podClient.getResourceWithType(path);
+  } catch (e) {
+    console.warn(`[rdf] fetch failed ${path}:`, e);
+    return;
+  }
   if (!fetched) return;
   // Prefer the server's Content-Type — that's authoritative. Fall back to
   // the extension if the server didn't send one we recognise.
   const format = RDF_CONTENT_TYPES.has(fetched.contentType)
     ? fetched.contentType
     : formatForPath(path);
-  if (!format) return;
+  if (!format) {
+    console.warn(`[rdf] no parser for ${path} (content-type=${fetched.contentType})`);
+    return;
+  }
   const graphIri = podClient.baseUrl.replace(/\/$/, '') + path;
-  s.load(fetched.body, {
-    format,
-    base_iri: graphIri,
-  });
+  try {
+    s.load(fetched.body, {
+      format,
+      base_iri: graphIri,
+    });
+  } catch (e) {
+    console.warn(`[rdf] parse failed ${path} (format=${format}):`, e);
+  }
 }
 
 async function loadContainer(s: Store, podClient: PodClient, path: string): Promise<void> {
