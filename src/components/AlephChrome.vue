@@ -4,6 +4,7 @@ import type { Mode } from './types';
 import AlephGlyph from './AlephGlyph.vue';
 import ModeToggle from './ModeToggle.vue';
 import SessionStartButton from './SessionStartButton.vue';
+import SessionPicker from './SessionPicker.vue';
 
 const props = defineProps<{
   mode: Mode;
@@ -76,6 +77,7 @@ defineEmits<{ (e: 'update:mode', m: Mode): void }>();
       @update:mode="(m) => $emit('update:mode', m)"
     />
 
+    <SessionPicker :palette="palette" :font-mono="fontMono" />
     <SessionStartButton :palette="palette" :font-mono="fontMono" />
 
     <div

@@ -1,4 +1,4 @@
-import { computed, unref, type MaybeRef, type Ref } from 'vue';
+import { computed, ref, unref, type MaybeRef, type Ref } from 'vue';
 import { PREFIXES, localName, select, shrink, type Bindings } from './rdf';
 import type { Term } from 'oxigraph/web.js';
 
@@ -392,8 +392,25 @@ export function useChat(): Ref<ChatMessage[]> {
   });
 }
 
+// User-selected session overrides the SPARQL "most-recent" default. Lives in
+// memory only; survives HMR refresh by stashing into sessionStorage.
+const SS_KEY = 'aleph:selectedSession';
+const initialSelection = typeof sessionStorage !== 'undefined'
+  ? sessionStorage.getItem(SS_KEY)
+  : null;
+export const selectedSessionId = ref<string | null>(initialSelection);
+
+export function setActiveSessionId(id: string | null): void {
+  selectedSessionId.value = id;
+  if (typeof sessionStorage !== 'undefined') {
+    if (id) sessionStorage.setItem(SS_KEY, id);
+    else sessionStorage.removeItem(SS_KEY);
+  }
+}
+
 export function useActiveSessionId(): Ref<string | null> {
   return computed(() => {
+    if (selectedSessionId.value) return selectedSessionId.value;
     const rows = select(render('activeSession'));
     const iriVal = rows[0]?.get('session')?.value;
     return iriVal ? localName(iriVal) : null;
