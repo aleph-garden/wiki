@@ -1,22 +1,21 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { getPod, POD_ROOT } from '../lib/rdf';
 import { useActiveSessionId, setActiveSessionId } from '../lib/queries';
+import { navigate } from '../lib/router';
 import type { Palette } from '../palette';
 
 defineProps<{ palette: Palette; fontMono: string }>();
 
 const activeId = useActiveSessionId();
 
-// Current path under pod root. Segments are container/file names. Last
-// segment may be a file (no trailing slash); everything before is containers.
-// Initialised to the active session's meta.ttl, but the user can navigate.
+// Path under pod root. For v1 the meaningful unit is the session itself; we
+// don't drill into individual files (msg1.ttl etc.) — those are details the
+// breadcrumb shouldn't surface.
 const segments = ref<string[]>([]);
 
 watch(activeId, (id) => {
-  if (id && segments.value.length === 0) {
-    segments.value = ['sessions', id, 'meta.ttl'];
-  }
+  segments.value = id ? ['sessions', id] : [];
 }, { immediate: true });
 
 // Listing for whichever segment dropdown is open. Loaded lazily.
@@ -56,22 +55,27 @@ async function openSegment(i: number) {
 
 function pickEntry(i: number, entry: string) {
   // entry is e.g. "msg1.ttl" or "Session_005/"
-  const isContainer = entry.endsWith('/');
   const clean = entry.replace(/\/$/, '');
-  // Replace segments[i..] with [clean]; if it's a container, leave terminal
-  // segment as just the container (the user can drill again).
-  segments.value = [...segments.value.slice(0, i), clean];
   openAt.value = null;
-  // If user picked a Session_xxx inside /sessions/, mirror to the active
-  // session selection so chat-input + queries follow along.
-  if (i >= 1 && segments.value[0] === 'sessions' && i === 1) {
-    setActiveSessionId(clean);
-    // Auto-drill into meta.ttl by default
-    segments.value = ['sessions', clean, 'meta.ttl'];
+  // Sessions are the only thing we want to surface in the breadcrumb. If the
+  // user navigated into /aleph/sessions/ and picked a Session_xxx, pin it as
+  // active session AND set focus so card/triples views resolve to it.
+  if (segments.value[0] === 'sessions' || (i === 1 && clean === 'sessions')) {
+    if (i === 1 && clean === 'sessions') {
+      // User just clicked into the `sessions` container; let them pick.
+      segments.value = ['sessions'];
+      return;
+    }
+    if (i === 1 && segments.value[0] === 'sessions') {
+      // Picking a Session_xxx under sessions/
+      setActiveSessionId(clean);
+      navigate({ focusCurie: clean });
+      segments.value = ['sessions', clean];
+      return;
+    }
   }
-  if (!isContainer) {
-    // file selected — nothing more to drill; could fetch + preview in v2
-  }
+  // Any other container/file pick: just reflect the path, no auto-drill.
+  segments.value = [...segments.value.slice(0, i), clean];
 }
 
 function close() { openAt.value = null; }
