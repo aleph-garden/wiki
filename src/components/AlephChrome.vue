@@ -4,7 +4,7 @@ import type { Mode } from './types';
 import AlephGlyph from './AlephGlyph.vue';
 import ModeToggle from './ModeToggle.vue';
 import SessionStartButton from './SessionStartButton.vue';
-import SessionPicker from './SessionPicker.vue';
+import PodBreadcrumb from './PodBreadcrumb.vue';
 
 const props = defineProps<{
   mode: Mode;
@@ -38,33 +38,8 @@ defineEmits<{ (e: 'update:mode', m: Mode): void }>();
       aleph.wiki
     </span>
 
-    <div
-      :style="{
-        marginLeft: '20px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '4px',
-        fontFamily: fontMono,
-        fontSize: '11.5px',
-        color: palette.mute,
-      }"
-    >
-      <span :style="{ color: palette.fg }">~/</span>
-      <span>pod</span>
-      <span style="opacity: .4">/</span>
-      <span>concepts</span>
-      <span style="opacity: .4">/</span>
-      <span :style="{ color: palette.fg, fontWeight: 500 }">GameTheory.ttl</span>
-      <span
-        :style="{
-          marginLeft: '8px',
-          fontSize: '10px',
-          color: palette.ok,
-          background: `${palette.ok}1a`,
-          padding: '1px 6px',
-          borderRadius: '3px',
-        }"
-      >SHACL ✓</span>
+    <div :style="{ marginLeft: '20px' }">
+      <PodBreadcrumb :palette="palette" :font-mono="fontMono" />
     </div>
 
     <div style="flex: 1" />
@@ -77,7 +52,6 @@ defineEmits<{ (e: 'update:mode', m: Mode): void }>();
       @update:mode="(m) => $emit('update:mode', m)"
     />
 
-    <SessionPicker :palette="palette" :font-mono="fontMono" />
     <SessionStartButton :palette="palette" :font-mono="fontMono" />
 
     <div
