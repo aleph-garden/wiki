@@ -49,7 +49,9 @@ function emitTtl(triples: Quad[]): string {
   for (const q of triples) writer.addQuad(q);
   let body = '';
   writer.end((_err, result) => { body = result; });
-  return `${editMeta()}\n\n${body}`;
+  // Edit-meta uses prefixed names (aleph:, prov:, xsd:) so it must come
+  // AFTER the writer's @prefix declarations, not before.
+  return `${body}\n${editMeta()}\n`;
 }
 
 export function splitGraph(ttl: string): Record<string, string> {
