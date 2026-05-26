@@ -46,7 +46,11 @@ export class PodClient {
     return out;
   }
 
-  subscribe(path: string, onChange: (ev: { path: string; kind: 'created'|'updated'|'deleted' }) => void): () => void {
+  subscribe(
+    path: string,
+    onChange: (ev: { path: string; kind: 'created'|'updated'|'deleted' }) => void,
+    onStatus?: (s: 'connecting'|'online'|'reconnecting') => void,
+  ): () => void {
     const wsUrl = this.baseUrl.replace(/^http/, 'ws').replace(/\/$/, '') + '/';
     let ws: WebSocket | null = null;
     let closed = false;
@@ -57,6 +61,7 @@ export class PodClient {
       ws = new WebSocket(wsUrl);
       ws.addEventListener('open', () => {
         backoff = 1000;
+        onStatus?.('online');
         ws!.send(`sub ${this.url(path)}`);
       });
       ws.addEventListener('message', (e: any) => {
@@ -68,6 +73,7 @@ export class PodClient {
       });
       ws.addEventListener('close', () => {
         if (closed) return;
+        onStatus?.('reconnecting');
         setTimeout(open, backoff);
         backoff = Math.min(backoff * 2, 30000);
       });

@@ -126,9 +126,13 @@ export function localName(iri: string): string {
 
 export function subscribePodChanges(onChange: (path: string) => void): () => void {
   const p = getPod();
-  return p.subscribe(POD_ROOT, async (ev) => {
-    podStatus.value = 'online';
-    await reloadResource(ev.path);
-    onChange(ev.path);
-  });
+  return p.subscribe(
+    POD_ROOT,
+    async (ev) => {
+      podStatus.value = 'online';
+      await reloadResource(ev.path);
+      onChange(ev.path);
+    },
+    (s) => { podStatus.value = s; },
+  );
 }

@@ -19,7 +19,7 @@
           mkdir -p "$DATA_DIR"
           echo "[aleph-jss] data=$DATA_DIR port=3000"
           exec ${pkgs.bun}/bin/bunx --bun javascript-solid-server@latest \
-            start --mcp --port 3000 --data "$DATA_DIR" --single-user
+            start --mcp --port 3000 --root "$DATA_DIR" --single-user
         '';
 
         seedRunner = pkgs.writeShellScriptBin "aleph-seed" ''
