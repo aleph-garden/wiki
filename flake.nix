@@ -11,6 +11,22 @@
       let
         pkgs = import nixpkgs { inherit system; };
 
+        # All scripts run from the user's project directory (not the nix-store
+        # snapshot ${self}, which has no node_modules). Override via
+        # ALEPH_PROJECT_DIR if invoking outside the repo.
+        projectDirSnippet = ''
+          PROJECT_DIR="''${ALEPH_PROJECT_DIR:-$PWD}"
+          if [ ! -f "$PROJECT_DIR/package.json" ]; then
+            echo "aleph: $PROJECT_DIR has no package.json — set ALEPH_PROJECT_DIR" >&2
+            exit 1
+          fi
+          if [ ! -d "$PROJECT_DIR/node_modules" ]; then
+            echo "aleph: $PROJECT_DIR/node_modules missing — running bun install"
+            (cd "$PROJECT_DIR" && ${pkgs.bun}/bin/bun install)
+          fi
+          cd "$PROJECT_DIR"
+        '';
+
         # JSS via bunx — npm package may be ahead of nixpkgs for v0.0.200+.
         # Data lives under $XDG_DATA_HOME/aleph-wiki/pod (or ~/.local/share fallback).
         jssRunner = pkgs.writeShellScriptBin "aleph-jss" ''
@@ -24,13 +40,13 @@
 
         seedRunner = pkgs.writeShellScriptBin "aleph-seed" ''
           set -e
-          cd ${self}
+          ${projectDirSnippet}
           exec ${pkgs.bun}/bin/bun run scripts/seed-pod.ts
         '';
 
         chatLauncher = pkgs.writeShellScriptBin "aleph-chat" ''
           set -e
-          cd ${self}
+          ${projectDirSnippet}
           if ! command -v claude >/dev/null 2>&1; then
             echo "claude CLI not in PATH. Install Claude Code first."
             exit 1
@@ -42,13 +58,13 @@
 
         devApp = pkgs.writeShellScriptBin "aleph-dev" ''
           set -e
-          cd ${self}
+          ${projectDirSnippet}
           export PATH="${pkgs.lib.makeBinPath [ pkgs.bun jssRunner seedRunner ]}:$PATH"
           # Default API port 8080 collides with common dev services — pin to 8085.
           PC_PORT="''${ALEPH_PC_PORT:-8085}"
           exec ${pkgs.process-compose}/bin/process-compose \
             -p "$PC_PORT" \
-            -f ${self}/process-compose.yaml
+            -f "$PROJECT_DIR/process-compose.yaml"
         '';
       in {
         apps = {
