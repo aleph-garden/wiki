@@ -78,6 +78,32 @@ async function loadResource(s: Store, podClient: PodClient, path: string): Promi
     return;
   }
   const graphIri = podClient.baseUrl.replace(/\/$/, '') + path;
+
+  // JSON-LD with an external @context URL: oxigraph won't resolve it on its
+  // own in the browser, so we pre-expand via jsonld.js and feed the result
+  // as N-Quads (which oxigraph definitely understands).
+  if (format === 'application/ld+json') {
+    try {
+      const jsonld = (await import('jsonld')).default as any;
+      const doc = JSON.parse(fetched.body);
+      // Document loader that follows relative @context URLs via the pod.
+      const documentLoader = async (url: string) => {
+        const res = await fetch(url, { headers: { Accept: 'application/ld+json' } });
+        const body = await res.json();
+        return { contextUrl: undefined, documentUrl: url, document: body };
+      };
+      const nquads = await jsonld.toRDF(doc, {
+        base: graphIri,
+        format: 'application/n-quads',
+        documentLoader,
+      });
+      s.load(nquads, { format: 'application/n-quads' });
+    } catch (e) {
+      console.warn(`[rdf] jsonld expand failed ${path}:`, e);
+    }
+    return;
+  }
+
   try {
     s.load(fetched.body, {
       format,
