@@ -25,7 +25,7 @@ describe('splitGraph', () => {
     const paths = Object.keys(result).sort();
     expect(paths).toContain('/aleph/concepts/GameTheory.ttl');
     expect(paths).toContain('/aleph/concepts/NashEquilibrium.ttl');
-    expect(paths).toContain('/aleph/sessions/Session_001/.meta.ttl');
+    expect(paths).toContain('/aleph/sessions/Session_001/meta.ttl');
     expect(paths).toContain('/aleph/index.ttl');
   });
 

@@ -95,7 +95,7 @@ export function splitGraph(ttl: string): Record<string, string> {
 
   for (const s of sessions) {
     const name = localName(s);
-    out[`/aleph/sessions/${name}/.meta.ttl`] = emitTtl(bySubject.get(s)!);
+    out[`/aleph/sessions/${name}/meta.ttl`] = emitTtl(bySubject.get(s)!);
   }
 
   if (orphans.length) {

@@ -29,7 +29,7 @@ async function startSession() {
       startedAt: now,
       attributedTo: 'Toph',
     });
-    const path = `/aleph/sessions/${sessionId}/.meta.ttl`;
+    const path = `/aleph/sessions/${sessionId}/meta.ttl`;
     await getPod().putResource(path, ttl, { ifNoneMatch: true });
     await reloadResource(path);
   } catch (e) {
