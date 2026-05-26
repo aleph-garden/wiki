@@ -1,0 +1,43 @@
+# ============================================================
+# Query: viewTrail
+# ============================================================
+#
+# Returns the curated breadcrumb labels of the project's View
+# in list order. The View carries an `aleph:trail` pointing at
+# the head of an rdf:List of plain string literals; this query
+# flattens that list and reconstructs positions so ORDER BY
+# yields the original sequence.
+#
+# Position is computed in a sub-select: for each list node,
+# count how many list nodes lie strictly before it via
+# `rdf:rest+`. The head element has zero predecessors → pos 0.
+#
+# Params:
+#   (none)
+#
+# Returns:
+#   ?label (Literal)     — trail step label.
+#   ?pos   (xsd:integer) — zero-based position; sort ascending.
+#
+# Example:
+#   useViewTrail()
+# ============================================================
+
+SELECT ?label ?pos WHERE {
+  ?view a aleph:View ; aleph:trail ?head .
+  ?head rdf:rest* ?node .
+  ?node rdf:first ?label .
+  {
+    SELECT ?node (COUNT(?prev) AS ?pos) WHERE {
+      ?v a aleph:View ; aleph:trail ?h .
+      ?h rdf:rest* ?node .
+      ?node rdf:first ?_anchor .
+      OPTIONAL {
+        ?h rdf:rest* ?prev .
+        ?prev rdf:rest+ ?node .
+      }
+    }
+    GROUP BY ?node
+  }
+}
+ORDER BY ?pos

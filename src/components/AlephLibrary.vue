@@ -2,7 +2,16 @@
 import { computed } from 'vue';
 import type { Palette } from '../palette';
 import type { Mode } from './types';
-import { loadDemoGraph } from '../lib/ttl';
+import { localName } from '../lib/rdf';
+import {
+  useDefaultFocusIri,
+  useAllNodes,
+  useAllEdges,
+  useViewTrail,
+  useSessions,
+  useFocusNode,
+} from '../lib/queries';
+import { current as route, navigate } from '../lib/router';
 
 const props = defineProps<{
   palette: Palette;
@@ -13,52 +22,101 @@ const props = defineProps<{
   mode: Mode;
 }>();
 
-const graph = loadDemoGraph();
+const defaultFocusIri = useDefaultFocusIri();
+const allNodes = useAllNodes();
+const allEdges = useAllEdges();
+const viewTrail = useViewTrail();
+const allSessions = useSessions();
 
 const isPoint = computed(() => props.mode === 'point');
 
+const activeFocusId = computed(() => {
+  const c = route.focusCurie;
+  if (c) return c.startsWith(':') ? c.slice(1) : c;
+  return defaultFocusIri.value ? localName(defaultFocusIri.value) : '';
+});
+
+const focusNode = useFocusNode(activeFocusId);
+
 const trail = computed(() => {
-  const focus = graph.nodes.find((n) => n.id === graph.focusId);
-  const upper = graph.view.trail.length ? [...graph.view.trail].reverse() : [];
-  return focus ? [...upper, focus.label] : upper;
+  const upper = viewTrail.value.length ? [...viewTrail.value].reverse() : [];
+  return focusNode.value ? [...upper, focusNode.value.label] : upper;
 });
 
 interface PredRow { p: string; n: number; active?: boolean }
 const predicates = computed<PredRow[]>(() => {
   const counts = new Map<string, number>();
-  for (const e of graph.edges) counts.set(e.predicate, (counts.get(e.predicate) ?? 0) + 1);
-  const focusEdge = graph.edges.find((e) => e.s === graph.focusId || e.o === graph.focusId);
-  const activeP = focusEdge?.predicate;
+  for (const e of allEdges.value) counts.set(e.predicate, (counts.get(e.predicate) ?? 0) + 1);
+  const activeP = route.predCurie ?? undefined;
   return [...counts.entries()]
     .sort((a, b) => b[1] - a[1])
     .map(([p, n]) => ({ p, n, active: p === activeP }));
 });
 
-interface TreeRow { icon: string; label: string; count?: string; active?: boolean; depth?: number }
+interface TreeRow {
+  icon: string;
+  label: string;
+  count?: string;
+  active?: boolean;
+  depth?: number;
+  id?: string;
+}
 const treeRows = computed<TreeRow[]>(() => {
-  const concepts = graph.nodes.filter((n) => n.kind === 'concept');
-  const people   = graph.nodes.filter((n) => n.kind === 'person');
-  const events   = graph.nodes.filter((n) => n.kind === 'event');
+  const focus = activeFocusId.value;
+  const nodes = allNodes.value;
+  const concepts = nodes.filter((n) => n.kind === 'concept');
+  const people   = nodes.filter((n) => n.kind === 'person');
+  const events   = nodes.filter((n) => n.kind === 'event');
   const important = concepts.filter((n) => n.importance >= 0.7);
 
   const rows: TreeRow[] = [
     { icon: '◇', label: 'aleph:Concept', count: String(concepts.length) },
     { icon: '◇', label: 'aleph:ImportantConcept', count: String(important.length), depth: 1 },
     ...important.map<TreeRow>((n) => ({
-      icon: n.id === graph.focusId ? '●' : '◆',
+      icon: n.id === focus ? '●' : '◆',
       label: n.label,
-      active: n.id === graph.focusId,
+      active: n.id === focus,
       depth: 2,
+      id: n.id,
     })),
     { icon: '○', label: 'aleph:Person', count: String(people.length) },
-    ...people.map<TreeRow>((n) => ({ icon: '◇', label: n.label, depth: 1 })),
+    ...people.map<TreeRow>((n) => ({
+      icon: n.id === focus ? '●' : '◇',
+      label: n.label,
+      active: n.id === focus,
+      depth: 1,
+      id: n.id,
+    })),
     { icon: '✦', label: 'aleph:Event', count: String(events.length) },
-    ...events.map<TreeRow>((n) => ({ icon: '◇', label: n.label, depth: 1 })),
+    ...events.map<TreeRow>((n) => ({
+      icon: n.id === focus ? '●' : '◇',
+      label: n.label,
+      active: n.id === focus,
+      depth: 1,
+      id: n.id,
+    })),
   ];
   return rows;
 });
 
-const sessions = computed(() => graph.sessions.slice(0, 4));
+const sessions = computed(() =>
+  allSessions.value.slice(0, 4).map((s) => ({
+    ...s,
+    active: s.id === focusNode.value?.generatedBy,
+  })),
+);
+
+function openNode(id?: string) {
+  if (!id) return;
+  navigate({ mode: 'card', focusCurie: id, predCurie: null });
+}
+function togglePredicate(p: string) {
+  navigate({
+    mode: 'card',
+    focusCurie: ':' + activeFocusId.value,
+    predCurie: route.predCurie === p ? null : p,
+  });
+}
 </script>
 
 <template>
@@ -172,6 +230,7 @@ const sessions = computed(() => graph.sessions.slice(0, 4));
         <div
           v-for="(pr, i) in predicates"
           :key="i"
+          @click="togglePredicate(pr.p)"
           :style="{
             margin: '2px 10px 2px 14px',
             padding: '3px 7px',
@@ -212,6 +271,7 @@ const sessions = computed(() => graph.sessions.slice(0, 4));
         <div
           v-for="(t, i) in treeRows"
           :key="i"
+          @click="openNode(t.id)"
           :style="{
             padding: '3px 14px',
             paddingLeft: (14 + (t.depth ?? 0) * 18) + 'px',
@@ -223,7 +283,7 @@ const sessions = computed(() => graph.sessions.slice(0, 4));
             fontSize: '12.5px',
             color: palette.fg,
             fontWeight: t.active ? 600 : 400,
-            cursor: 'pointer',
+            cursor: t.id ? 'pointer' : 'default',
           }"
         >
           <span
@@ -260,7 +320,7 @@ const sessions = computed(() => graph.sessions.slice(0, 4));
       >Sessions</div>
       <div style="padding: 4px 0">
         <div
-          v-for="(s, i) in sessions"
+          v-for="s in sessions"
           :key="s.id"
           :style="{
             padding: '5px 14px',
@@ -270,15 +330,15 @@ const sessions = computed(() => graph.sessions.slice(0, 4));
             display: 'flex',
             flexDirection: 'column',
             gap: '1px',
-            borderLeft: i === 0 ? `2px solid ${palette.sepia}` : '2px solid transparent',
-            background: i === 0 ? palette.soft : 'transparent',
+            borderLeft: s.active ? `2px solid ${palette.sepia}` : '2px solid transparent',
+            background: s.active ? palette.soft : 'transparent',
           }"
         >
           <div
             :style="{
               display: 'flex',
               justifyContent: 'space-between',
-              color: i === 0 ? palette.fg : palette.mute,
+              color: s.active ? palette.fg : palette.mute,
             }"
           >
             <span>{{ s.id }}</span>

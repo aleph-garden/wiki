@@ -1,0 +1,43 @@
+# ============================================================
+# Query: sessions
+# ============================================================
+#
+# All `aleph:AlephSession` subjects with their summary fields,
+# sorted most-recent-first by start time so callers can slice
+# the head for a "recent sessions" panel.
+#
+# The agent label is pulled via `prov:wasAssociatedWith`; the
+# FILTER on STRSTARTS keeps only Claude-flavoured agents (the
+# data may attribute sessions to humans too, which the rail
+# panel doesn't surface).
+#
+# Params:
+#   (none — slice client-side if a limit is desired)
+#
+# Returns:
+#   ?session      (NamedNode)   — session IRI; localName() in JS.
+#   ?label        (Literal)     — rdfs:label, optional.
+#   ?agent        (Literal)     — Claude variant label, optional.
+#   ?focus        (Literal)     — aleph:focus blurb, optional.
+#   ?startedAt    (xsd:dateTime)— prov:startedAtTime, optional.
+#   ?endedAt      (xsd:dateTime)— prov:endedAtTime, optional.
+#   ?conceptCount (xsd:integer) — aleph:conceptCount, optional.
+#
+# Example:
+#   useSessions()  // then slice / filter in the component
+# ============================================================
+
+SELECT ?session ?label ?agent ?focus ?startedAt ?endedAt ?conceptCount WHERE {
+  ?session a aleph:AlephSession .
+  OPTIONAL { ?session rdfs:label ?label }
+  OPTIONAL { ?session aleph:focus ?focus }
+  OPTIONAL { ?session prov:startedAtTime ?startedAt }
+  OPTIONAL { ?session prov:endedAtTime ?endedAt }
+  OPTIONAL { ?session aleph:conceptCount ?conceptCount }
+  OPTIONAL {
+    ?session prov:wasAssociatedWith ?agentNode .
+    ?agentNode rdfs:label ?agent .
+    FILTER(STRSTARTS(?agent, "Claude"))
+  }
+}
+ORDER BY DESC(?startedAt)

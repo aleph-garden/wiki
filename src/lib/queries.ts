@@ -11,6 +11,8 @@ import shaclResults from '../queries/shacl-results.sparql?raw';
 import defaultFocus from '../queries/default-focus.sparql?raw';
 import allNodes from '../queries/all-nodes.sparql?raw';
 import allEdges from '../queries/all-edges.sparql?raw';
+import viewTrail from '../queries/view-trail.sparql?raw';
+import sessions from '../queries/sessions.sparql?raw';
 
 // Central catalog. Add a new .sparql file under src/queries/ and register it here.
 // Each entry is the raw query body — PREFIX declarations are auto-prepended by select().
@@ -24,6 +26,8 @@ export const QUERIES = {
   defaultFocus,
   allNodes,
   allEdges,
+  viewTrail,
+  sessions,
 } as const;
 
 export type QueryKey = keyof typeof QUERIES;
@@ -112,6 +116,16 @@ export interface GraphEdge {
   s: string;
   o: string;
   predicate: string;
+}
+
+export interface Session {
+  id: string;
+  label: string;
+  agent: string;
+  focus: string;
+  startedAt: string;
+  endedAt?: string;
+  conceptCount: number;
 }
 
 // ── shaping helpers ────────────────────────────────────────
@@ -246,5 +260,30 @@ export function useAllEdges(): Ref<GraphEdge[]> {
       o: localName(row.get('o')!.value),
       predicate: shrink(row.get('p')!.value),
     }));
+  });
+}
+
+export function useViewTrail(): Ref<string[]> {
+  return computed(() => {
+    const rows = select(render('viewTrail'));
+    return rows.map((row) => row.get('label')?.value ?? '');
+  });
+}
+
+export function useSessions(): Ref<Session[]> {
+  return computed(() => {
+    const rows = select(render('sessions'));
+    return rows.map<Session>((row) => {
+      const iriVal = row.get('session')!.value;
+      return {
+        id: localName(iriVal),
+        label: row.get('label')?.value ?? localName(iriVal),
+        agent: row.get('agent')?.value ?? '—',
+        focus: row.get('focus')?.value ?? '',
+        startedAt: row.get('startedAt')?.value ?? '',
+        endedAt: row.get('endedAt')?.value,
+        conceptCount: Number(row.get('conceptCount')?.value ?? 0),
+      };
+    });
   });
 }
