@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, ref, onMounted } from 'vue';
+import { computed, ref, watch } from 'vue';
 import type { Palette } from '../palette';
-import { getStore, getPod, POD_ROOT } from '../lib/rdf';
+import { getStore, getPod, select } from '../lib/rdf';
 import { useSparql } from '../lib/queries';
+import { current as route } from '../lib/router';
 import ConceptHeader from './ConceptHeader.vue';
 import PageLayout from './PageLayout.vue';
 
@@ -17,20 +18,49 @@ const props = defineProps<{
 }>();
 
 const raw = ref('');
-const source = ref('');
-const tripleCount = getStore().size;
+const source = ref('—');
+const tripleCount = computed(() => getStore().size);
 const byteSize = computed(() => new TextEncoder().encode(raw.value).length);
 
-onMounted(async () => {
-  const pod = getPod();
-  const entries = await pod.listContainer(POD_ROOT);
-  const first = entries.find((e) => e.endsWith('.ttl'));
-  if (first) {
-    const url = new URL(first);
-    source.value = url.pathname.split('/').pop() ?? first;
-    raw.value = (await pod.getResource(url.pathname)) ?? '';
+// Map a focus localname to its canonical pod path. Determined by the rdf:type
+// the focus has in the store.
+function focusToPath(focus: string): string | null {
+  try {
+    const rows = select(`SELECT ?type WHERE { :${focus} a ?type } LIMIT 5`);
+    for (const r of rows) {
+      const t = r.get('type')?.value ?? '';
+      if (t === 'https://vocab.aleph.wiki/AlephSession') {
+        return `/aleph/sessions/${focus}/meta.ttl`;
+      }
+      if (t === 'https://vocab.aleph.wiki/Concept'
+       || t === 'https://vocab.aleph.wiki/Person'
+       || t === 'https://vocab.aleph.wiki/Event'
+       || t === 'https://vocab.aleph.wiki/ImportantConcept') {
+        return `/aleph/concepts/${focus}.ttl`;
+      }
+    }
+  } catch { /* store not ready yet */ }
+  return null;
+}
+
+async function loadFocusedResource() {
+  const focus = route.focusCurie;
+  if (!focus) {
+    source.value = '—';
+    raw.value = '';
+    return;
   }
-});
+  const path = focusToPath(focus);
+  if (!path) {
+    source.value = focus + ' (no resource)';
+    raw.value = '';
+    return;
+  }
+  source.value = path.split('/').pop() ?? path;
+  raw.value = (await getPod().getResource(path)) ?? '';
+}
+
+watch(() => route.focusCurie, loadFocusedResource, { immediate: true });
 
 const nodeCountResult = useSparql('nodeCount');
 const nodeCount = computed(() => Number(nodeCountResult.value[0]?.get('n')?.value ?? 0));
