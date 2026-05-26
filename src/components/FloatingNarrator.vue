@@ -2,7 +2,7 @@
 import { computed } from 'vue';
 import type { Palette } from '../palette';
 import { FONT_MONO as MONO, FONT_SERIF as SERIF } from '../palette';
-import { loadDemoGraph } from '../lib/ttl';
+import { useChat } from '../lib/queries';
 
 const props = defineProps<{
   palette: Palette;
@@ -14,8 +14,8 @@ const positionStyle = computed(() =>
   props.side === 'left' ? { left: '80px' } : { right: '24px' }
 );
 
-const graph = loadDemoGraph();
-const recent = graph.chat.slice(-4);
+const chat = useChat();
+const recent = computed(() => chat.value.slice(-4));
 </script>
 
 <template>
