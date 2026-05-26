@@ -1,8 +1,8 @@
 # Aleph Prompt Framework
 
-Wozu? UI nicht aus `data.ts` hardcoden, sondern aus echten `.ttl`-Dateien speisen.
-Diese Prompts erzeugen und pflegen genau solche Dateien. Resultat passt 1:1 in
-`data/*.ttl` und wird vom UI-Loader gelesen.
+Why? Don't hardcode the UI from `data.ts` — feed it from real `.ttl` files
+instead. These prompts generate and maintain exactly those files. Output
+drops 1:1 into `data/*.ttl` and is read by the UI loader.
 
 ## Pipeline
 
