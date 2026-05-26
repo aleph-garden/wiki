@@ -9,6 +9,7 @@ import {
   useViewQuestion,
   useViewSuggestions,
   useDefaultFocusIri,
+  useActiveSessionId,
 } from '../lib/queries';
 import { current as route, navigate } from '../lib/router';
 import AlephGlyph from './AlephGlyph.vue';
@@ -33,6 +34,7 @@ const viewPath = useViewPath();
 const viewQuestion = useViewQuestion();
 const viewSuggestions = useViewSuggestions();
 const defaultFocusIri = useDefaultFocusIri();
+const activeSessionId = useActiveSessionId();
 
 const focusId = computed(() =>
   route.focusCurie
@@ -40,8 +42,23 @@ const focusId = computed(() =>
     ?? (defaultFocusIri.value ? localName(defaultFocusIri.value) : 'GameTheory'),
 );
 
-// Initial value seeded from the query; user edits decouple from the store.
-const question = ref(viewQuestion.value);
+// Dynamic banner: prefer the focused node label, fall back to the active
+// session, then to the demo View question. Editable via the input below.
+const question = computed({
+  get: () => {
+    if (questionOverride.value !== null) return questionOverride.value;
+    const focus = route.focusCurie;
+    if (focus) {
+      const label = allNodes.value.find((n) => n.id === focus)?.label;
+      if (label) return label;
+      return focus;
+    }
+    if (activeSessionId.value) return `session ${activeSessionId.value}`;
+    return viewQuestion.value;
+  },
+  set: (v) => { questionOverride.value = v; },
+});
+const questionOverride = ref<string | null>(null);
 
 const stops = computed(() => viewPath.value.length);
 const hops = computed(() => Math.max(0, viewPath.value.length - 1));
