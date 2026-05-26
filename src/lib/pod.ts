@@ -23,11 +23,29 @@ export class PodClient {
 
   async getResource(path: string): Promise<string | null> {
     const res = await fetch(this.url(path), {
-      headers: { Accept: 'text/turtle' },
+      headers: {
+        // Ask for any RDF the server can serialize. q-values nudge the server
+        // toward turtle (smallest, most legible) but accept everything.
+        Accept: 'text/turtle;q=1.0, application/ld+json;q=0.9, application/n-triples;q=0.8, application/n-quads;q=0.8, application/trig;q=0.7, application/rdf+xml;q=0.6, */*;q=0.1',
+      },
     });
     if (res.status === 404) return null;
     if (!res.ok) throw new Error(`GET ${path} → ${res.status}`);
     return res.text();
+  }
+
+  // Like getResource but also surfaces the server's Content-Type so the caller
+  // can pick a matching parser.
+  async getResourceWithType(path: string): Promise<{ body: string; contentType: string } | null> {
+    const res = await fetch(this.url(path), {
+      headers: {
+        Accept: 'text/turtle;q=1.0, application/ld+json;q=0.9, application/n-triples;q=0.8, application/n-quads;q=0.8, application/trig;q=0.7, application/rdf+xml;q=0.6, */*;q=0.1',
+      },
+    });
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error(`GET ${path} → ${res.status}`);
+    const contentType = (res.headers.get('content-type') ?? 'text/turtle').split(';')[0].trim();
+    return { body: await res.text(), contentType };
   }
 
   async listContainer(path: string): Promise<string[]> {

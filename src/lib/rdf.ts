@@ -37,16 +37,40 @@ export function getPod(): PodClient {
   return pod;
 }
 
+// All RDF serializations oxigraph can parse. Mapping covers both file
+// extensions (for early-skip during container scan) and the
+// Content-Type the server returns at fetch time.
+const FORMAT_BY_EXT: Record<string, string> = {
+  '.ttl':    'text/turtle',
+  '.nt':     'application/n-triples',
+  '.nq':     'application/n-quads',
+  '.trig':   'application/trig',
+  '.jsonld': 'application/ld+json',
+  '.json':   'application/ld+json',
+  '.rdf':    'application/rdf+xml',
+  '.xml':    'application/rdf+xml',
+};
+const RDF_CONTENT_TYPES = new Set(Object.values(FORMAT_BY_EXT));
+
+function formatForPath(path: string): string | null {
+  for (const [ext, mime] of Object.entries(FORMAT_BY_EXT)) {
+    if (path.endsWith(ext)) return mime;
+  }
+  return null;
+}
+
 async function loadResource(s: Store, podClient: PodClient, path: string): Promise<void> {
-  const ttl = await podClient.getResource(path);
-  if (!ttl) return;
+  const fetched = await podClient.getResourceWithType(path);
+  if (!fetched) return;
+  // Prefer the server's Content-Type — that's authoritative. Fall back to
+  // the extension if the server didn't send one we recognise.
+  const format = RDF_CONTENT_TYPES.has(fetched.contentType)
+    ? fetched.contentType
+    : formatForPath(path);
+  if (!format) return;
   const graphIri = podClient.baseUrl.replace(/\/$/, '') + path;
-  // Load into the default graph so plain SELECT queries (no GRAPH clause)
-  // match. Provenance is preserved via in-body `prov:wasGeneratedBy` / Edit
-  // triples instead of relying on graph-name. Named-graph isolation can
-  // return as a v2 with explicit GRAPH-aware queries.
-  s.load(ttl, {
-    format: 'text/turtle',
+  s.load(fetched.body, {
+    format,
     base_iri: graphIri,
   });
 }
@@ -55,11 +79,10 @@ async function loadContainer(s: Store, podClient: PodClient, path: string): Prom
   // listContainer returns absolute URLs; extract path component for recursive calls
   const entries = await podClient.listContainer(path);
   await Promise.all(entries.map(async (entry) => {
-    // entry is a full URL like http://localhost:3000/aleph/foo.ttl
     const entryPath = new URL(entry).pathname;
     if (entry.endsWith('/')) {
       await loadContainer(s, podClient, entryPath);
-    } else if (entry.endsWith('.ttl')) {
+    } else if (formatForPath(entryPath)) {
       await loadResource(s, podClient, entryPath);
     }
   }));
