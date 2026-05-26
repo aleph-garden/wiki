@@ -1,5 +1,9 @@
 import init, { Store, namedNode, type Term } from 'oxigraph/web.js';
+import { ref } from 'vue';
 import { PodClient } from './pod';
+
+export type PodStatus = 'connecting' | 'online' | 'offline' | 'reconnecting';
+export const podStatus = ref<PodStatus>('connecting');
 
 export const PREFIXES: Record<string, string> = {
   '': 'https://aleph.wiki/g/',
@@ -62,8 +66,10 @@ export function initStore(): Promise<Store> {
     const p = getPod();
     try {
       await loadContainer(s, p, POD_ROOT);
+      podStatus.value = 'online';
     } catch (err) {
       console.warn('pod load failed:', err);
+      podStatus.value = 'offline';
     }
     store = s;
     return s;
@@ -116,4 +122,13 @@ export function localName(iri: string): string {
   const s = iri.lastIndexOf('/');
   const h = iri.lastIndexOf('#');
   return iri.slice(Math.max(s, h) + 1);
+}
+
+export function subscribePodChanges(onChange: (path: string) => void): () => void {
+  const p = getPod();
+  return p.subscribe(POD_ROOT, async (ev) => {
+    podStatus.value = 'online';
+    await reloadResource(ev.path);
+    onChange(ev.path);
+  });
 }
