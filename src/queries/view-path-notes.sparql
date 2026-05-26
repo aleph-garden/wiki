@@ -1,0 +1,25 @@
+# ============================================================
+# Query: viewPathNotes
+# ============================================================
+#
+# Free-text annotations anchored to a concept along the View's
+# reasoning path. Each `aleph:pathNote` blank node holds a
+# pointer to the concept (`aleph:atConcept`) and the prose
+# (`aleph:noteText`).
+#
+# Params:
+#   (none)
+#
+# Returns:
+#   ?atConcept (NamedNode) — concept IRI the note is attached to.
+#   ?text      (Literal)   — note body (may contain newlines).
+#
+# Example:
+#   useViewPathNotes()
+# ============================================================
+
+SELECT ?atConcept ?text WHERE {
+  ?view a aleph:View ; aleph:pathNote ?pn .
+  ?pn aleph:atConcept ?atConcept ;
+      aleph:noteText  ?text .
+}

@@ -1,10 +1,32 @@
-import type { DemoGraph, GraphNode, NodeKind } from './ttl';
+import type {
+  GraphNode,
+  GraphEdge,
+  NodeKind,
+  ViewEdgeNote,
+  ViewPathNote,
+} from './queries';
+import { prettyPredicate } from './queries';
+
+export interface LayoutGraph {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+  view: {
+    path: string[];
+    trail: string[];
+    edgeNotes: ViewEdgeNote[];
+    pathNotes: ViewPathNote[];
+  };
+  activeSession: string | null;
+}
 
 export interface LayoutOpts {
   width: number;
   height: number;
   narratorSide?: 'left' | 'right';
   focusId: string;          // central node id
+  // Previous per-node angles, used to keep nodes near their last position when
+  // the focus changes (minimises angular movement during transition).
+  prevAngles?: Map<string, number>;
 }
 
 export interface Placed {
@@ -21,9 +43,12 @@ export interface RenderedNode {
   inSession: boolean;
   onPath: boolean;
   dim: boolean;
+  isFocus: boolean;
   tx: number; ty: number;
-  anchor: 'start' | 'end';
+  anchor: 'start' | 'end' | 'middle';
   lineX1: number; lineX2: number;
+  labelSize: number;
+  labelWeight: number;
 }
 
 export interface Star { x: number; y: number; r: number; op: number; }
@@ -49,12 +74,15 @@ export interface Layout {
     nameSize: number; nameYOff: number; metaYOff: number;
   };
   focusNode: GraphNode | undefined;
+  // The angle assigned to each placed node — feed back into the next
+  // buildLayout call via opts.prevAngles to preserve angular continuity.
+  angles: Map<string, number>;
 }
 
 const TRAIL_ANGLES = [Math.PI * 0.65, Math.PI * 0.78, Math.PI * 0.92];
 
-export function buildLayout(graph: DemoGraph, opts: LayoutOpts): Layout {
-  const { width, height, narratorSide, focusId } = opts;
+export function buildLayout(graph: LayoutGraph, opts: LayoutOpts): Layout {
+  const { width, height, narratorSide, focusId, prevAngles } = opts;
   const cx = width / 2;
   const cy = height * 0.46;
   const scale = Math.max(0.55, Math.min(1.4, Math.min(width / 1384, height / 828)));
@@ -102,12 +130,52 @@ export function buildLayout(graph: DemoGraph, opts: LayoutOpts): Layout {
     .map((n) => n.id);
 
   const placed: Placed[] = [];
+
+  // Distribute ids around a ring. Surviving ids (with a remembered angle)
+  // keep their exact previous angle so they don't move. Newcomers slot into
+  // the largest current angular gap. Result: only nodes that *must* move do.
   const distribute = (ids: string[], radius: number, startAngle: number) => {
-    ids.forEach((id, i) => {
-      const angle = startAngle + (i / Math.max(ids.length, 1)) * Math.PI * 2;
+    const n = ids.length;
+    if (n === 0) return;
+
+    const angles = new Map<string, number>();
+    const withoutPrev: string[] = [];
+    for (const id of ids) {
+      const p = prevAngles?.get(id);
+      if (p !== undefined) angles.set(id, p);
+      else withoutPrev.push(id);
+    }
+
+    if (angles.size === 0) {
+      // No anchors — even distribution.
+      ids.forEach((id, i) => angles.set(id, startAngle + (i / n) * Math.PI * 2));
+    } else {
+      for (const id of withoutPrev) {
+        // Place in the midpoint of the largest current angular gap.
+        const sorted = [...angles.values()].sort((a, b) => a - b);
+        let bestGap = 0;
+        let bisect = startAngle;
+        for (let i = 0; i < sorted.length; i++) {
+          const a = sorted[i];
+          const b = sorted[(i + 1) % sorted.length];
+          const gap = i === sorted.length - 1
+            ? (b + Math.PI * 2) - a
+            : b - a;
+          if (gap > bestGap) {
+            bestGap = gap;
+            bisect = a + gap / 2;
+          }
+        }
+        angles.set(id, bisect);
+      }
+    }
+
+    for (const id of ids) {
+      const angle = angles.get(id);
+      if (angle === undefined) continue;
       const node = graph.nodes.find((x) => x.id === id);
       if (node) placed.push({ node, angle, radius });
-    });
+    }
   };
   distribute(inner,  orbits[0].r, -Math.PI / 2);
   distribute(middle, orbits[1].r, -Math.PI / 2 + 0.6);
@@ -129,7 +197,7 @@ export function buildLayout(graph: DemoGraph, opts: LayoutOpts): Layout {
     const e = graph.edges.find(
       (x) => (x.s === focusId && x.o === id) || (x.o === focusId && x.s === id),
     );
-    return e ? e.pretty : '';
+    return e ? prettyPredicate(e.predicate) : '';
   };
 
   const place = (id: string): [number, number] => {
@@ -137,6 +205,9 @@ export function buildLayout(graph: DemoGraph, opts: LayoutOpts): Layout {
     const p = placed.find((n) => n.node.id === id);
     return p ? [cx + Math.cos(p.angle) * p.radius, cy + Math.sin(p.angle) * p.radius] : [cx, cy];
   };
+
+  const focusNode = graph.nodes.find((n) => n.id === focusId);
+  const focusR = 8 * scale;
 
   const renderedNodes: RenderedNode[] = placed.map((p) => {
     const x = cx + Math.cos(p.angle) * p.radius;
@@ -166,12 +237,35 @@ export function buildLayout(graph: DemoGraph, opts: LayoutOpts): Layout {
       inSession,
       onPath,
       dim,
+      isFocus: false,
       tx, ty,
       anchor: onRight ? 'start' : 'end',
       lineX1: x + (onRight ? r : -r),
       lineX2: tx - (onRight ? 4 : -4),
+      labelSize: onPath ? 15 : p.node.importance > 0.6 ? 14 : 12,
+      labelWeight: onPath ? 600 : p.node.importance > 0.7 ? 500 : 400,
     };
   });
+
+  if (focusNode) {
+    renderedNodes.push({
+      node: focusNode,
+      x: cx, y: cy, r: focusR,
+      kind: focusNode.kind,
+      predicate: '',
+      inSession: inSessionSet.has(focusNode.id),
+      onPath: onPathSet.has(focusNode.id),
+      dim: false,
+      isFocus: true,
+      tx: cx,
+      ty: cy + focusR + 18 * scale,
+      anchor: 'middle',
+      lineX1: cx,
+      lineX2: cx,
+      labelSize: 22 * scale,
+      labelWeight: 500,
+    });
+  }
 
   // ── reasoning path ──
   let reasoningD = '';
@@ -264,6 +358,7 @@ export function buildLayout(graph: DemoGraph, opts: LayoutOpts): Layout {
     reasoningD, reasoningLabels,
     pathNoteAnchors,
     core,
-    focusNode: graph.nodes.find((n) => n.id === focusId),
+    focusNode,
+    angles: new Map(placed.map((p) => [p.node.id, p.angle])),
   };
 }

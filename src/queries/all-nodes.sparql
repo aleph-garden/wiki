@@ -17,16 +17,17 @@
 #   (none)
 #
 # Returns:
-#   ?iri        (NamedNode)   — subject IRI.
-#   ?label      (Literal)     — skos:prefLabel, else rdfs:label.
-#   ?kind       (Literal)     — "person" | "event" | "concept".
-#   ?importance (xsd:decimal) — aleph:perceivedImportance, optional.
+#   ?iri         (NamedNode)   — subject IRI.
+#   ?label       (Literal)     — skos:prefLabel, else rdfs:label.
+#   ?kind        (Literal)     — "person" | "event" | "concept".
+#   ?importance  (xsd:decimal) — aleph:perceivedImportance, optional.
+#   ?generatedBy (NamedNode)   — prov:wasGeneratedBy session IRI, optional.
 #
 # Example:
 #   useAllNodes()
 # ============================================================
 
-SELECT DISTINCT ?iri ?label ?kind ?importance WHERE {
+SELECT DISTINCT ?iri ?label ?kind ?importance ?generatedBy WHERE {
   ?iri a ?someType .
   FILTER(EXISTS {
     ?iri a ?t .
@@ -38,6 +39,7 @@ SELECT DISTINCT ?iri ?label ?kind ?importance WHERE {
   OPTIONAL { ?iri rdfs:label ?rdfsLabel }
   BIND(COALESCE(?prefLabel, ?rdfsLabel) AS ?label)
   OPTIONAL { ?iri aleph:perceivedImportance ?importance }
+  OPTIONAL { ?iri prov:wasGeneratedBy ?generatedBy }
   BIND(
     IF(EXISTS { ?iri a aleph:Person } || EXISTS { ?iri a foaf:Person }, "person",
     IF(EXISTS { ?iri a aleph:Event }, "event", "concept"))

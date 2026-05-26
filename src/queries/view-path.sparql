@@ -1,0 +1,38 @@
+# ============================================================
+# Query: viewPath
+# ============================================================
+#
+# Ordered concept IRIs of the project View's `aleph:path`. Same
+# list-flattening trick as viewTrail — count predecessors via
+# `rdf:rest+` per list node, OPTIONAL so the head element keeps
+# position 0.
+#
+# Params:
+#   (none)
+#
+# Returns:
+#   ?iri (NamedNode)   — concept IRI at this step.
+#   ?pos (xsd:integer) — zero-based position; sort ascending.
+#
+# Example:
+#   useViewPath()
+# ============================================================
+
+SELECT ?iri ?pos WHERE {
+  ?view a aleph:View ; aleph:path ?head .
+  ?head rdf:rest* ?node .
+  ?node rdf:first ?iri .
+  {
+    SELECT ?node (COUNT(?prev) AS ?pos) WHERE {
+      ?v a aleph:View ; aleph:path ?h .
+      ?h rdf:rest* ?node .
+      ?node rdf:first ?_anchor .
+      OPTIONAL {
+        ?h rdf:rest* ?prev .
+        ?prev rdf:rest+ ?node .
+      }
+    }
+    GROUP BY ?node
+  }
+}
+ORDER BY ?pos

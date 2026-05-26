@@ -12,6 +12,12 @@ import defaultFocus from '../queries/default-focus.sparql?raw';
 import allNodes from '../queries/all-nodes.sparql?raw';
 import allEdges from '../queries/all-edges.sparql?raw';
 import viewTrail from '../queries/view-trail.sparql?raw';
+import viewPath from '../queries/view-path.sparql?raw';
+import viewEdgeNotes from '../queries/view-edge-notes.sparql?raw';
+import viewPathNotes from '../queries/view-path-notes.sparql?raw';
+import viewQuestion from '../queries/view-question.sparql?raw';
+import viewSuggestions from '../queries/view-suggestions.sparql?raw';
+import activeSession from '../queries/active-session.sparql?raw';
 import sessions from '../queries/sessions.sparql?raw';
 
 // Central catalog. Add a new .sparql file under src/queries/ and register it here.
@@ -27,6 +33,12 @@ export const QUERIES = {
   allNodes,
   allEdges,
   viewTrail,
+  viewPath,
+  viewEdgeNotes,
+  viewPathNotes,
+  viewQuestion,
+  viewSuggestions,
+  activeSession,
   sessions,
 } as const;
 
@@ -42,6 +54,19 @@ export function render(name: QueryKey, params: Params = {}): string {
     q = q.replaceAll(`{{${k}}}`, String(v));
   }
   return q;
+}
+
+const PRETTY_PREDICATE: Record<string, string> = {
+  'aleph:derivedFrom':    'derived from',
+  'aleph:requires':       'requires',
+  'aleph:exemplifies':    'exemplifies',
+  'skos:broader':         'broader',
+  'skos:related':         'related to',
+  'prov:wasAttributedTo': 'attributed to',
+};
+
+export function prettyPredicate(curie: string): string {
+  return PRETTY_PREDICATE[curie] ?? curie;
 }
 
 // Wrap an IRI for safe substitution. Accepts full IRI, CURIE, or bare local name.
@@ -110,12 +135,30 @@ export interface GraphNode {
   label: string;
   kind: NodeKind;
   importance: number;
+  generatedBy?: string;
 }
 
 export interface GraphEdge {
   s: string;
   o: string;
   predicate: string;
+}
+
+export interface ViewEdgeNote {
+  from: string;
+  to: string;
+  label: string;
+  cite?: string;
+}
+
+export interface ViewPathNote {
+  atConcept: string;
+  text: string;
+}
+
+export interface ViewSuggestion {
+  target: string;
+  reason: string;
 }
 
 export interface Session {
@@ -241,12 +284,14 @@ export function useAllNodes(): Ref<GraphNode[]> {
     const rows = select(render('allNodes'));
     return rows.map<GraphNode>((row) => {
       const iriVal = row.get('iri')!.value;
+      const gen = row.get('generatedBy');
       return {
         id: localName(iriVal),
         iri: iriVal,
         label: row.get('label')?.value ?? localName(iriVal),
         kind: asKind(row.get('kind')?.value),
         importance: Number(row.get('importance')?.value ?? 0.5),
+        generatedBy: gen ? localName(gen.value) : undefined,
       };
     });
   });
@@ -267,6 +312,60 @@ export function useViewTrail(): Ref<string[]> {
   return computed(() => {
     const rows = select(render('viewTrail'));
     return rows.map((row) => row.get('label')?.value ?? '');
+  });
+}
+
+export function useViewPath(): Ref<string[]> {
+  return computed(() => {
+    const rows = select(render('viewPath'));
+    return rows.map((row) => localName(row.get('iri')!.value));
+  });
+}
+
+export function useViewEdgeNotes(): Ref<ViewEdgeNote[]> {
+  return computed(() => {
+    const rows = select(render('viewEdgeNotes'));
+    return rows.map<ViewEdgeNote>((row) => ({
+      from: localName(row.get('from')!.value),
+      to: localName(row.get('to')!.value),
+      label: row.get('label')?.value ?? '',
+      cite: row.get('cite')?.value,
+    }));
+  });
+}
+
+export function useViewPathNotes(): Ref<ViewPathNote[]> {
+  return computed(() => {
+    const rows = select(render('viewPathNotes'));
+    return rows.map<ViewPathNote>((row) => ({
+      atConcept: localName(row.get('atConcept')!.value),
+      text: row.get('text')?.value ?? '',
+    }));
+  });
+}
+
+export function useViewQuestion(): Ref<string> {
+  return computed(() => {
+    const rows = select(render('viewQuestion'));
+    return rows[0]?.get('question')?.value ?? '';
+  });
+}
+
+export function useViewSuggestions(): Ref<ViewSuggestion[]> {
+  return computed(() => {
+    const rows = select(render('viewSuggestions'));
+    return rows.map<ViewSuggestion>((row) => ({
+      target: localName(row.get('target')!.value),
+      reason: row.get('reason')?.value ?? '',
+    }));
+  });
+}
+
+export function useActiveSessionId(): Ref<string | null> {
+  return computed(() => {
+    const rows = select(render('activeSession'));
+    const iriVal = rows[0]?.get('session')?.value;
+    return iriVal ? localName(iriVal) : null;
   });
 }
 

@@ -1,0 +1,24 @@
+# ============================================================
+# Query: viewSuggestions
+# ============================================================
+#
+# "Follow ↗" candidates surfaced under the orbital canvas. Each
+# `aleph:suggestion` blank node points at a target concept
+# (`aleph:target`) and explains the link with `aleph:reason`.
+#
+# Params:
+#   (none)
+#
+# Returns:
+#   ?target (NamedNode) — concept IRI to follow.
+#   ?reason (Literal)   — short rationale shown beside the pill.
+#
+# Example:
+#   useViewSuggestions()
+# ============================================================
+
+SELECT ?target ?reason WHERE {
+  ?view a aleph:View ; aleph:suggestion ?sg .
+  ?sg aleph:target ?target ;
+      aleph:reason ?reason .
+}

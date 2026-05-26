@@ -1,0 +1,21 @@
+# ============================================================
+# Query: viewQuestion
+# ============================================================
+#
+# Returns the View's user-facing question string used as the
+# floating banner above the orbital canvas.
+#
+# Params:
+#   (none)
+#
+# Returns:
+#   ?question (Literal) — verbatim aleph:question text.
+#
+# Example:
+#   useViewQuestion()
+# ============================================================
+
+SELECT ?question WHERE {
+  ?view a aleph:View ; aleph:question ?question .
+}
+LIMIT 1

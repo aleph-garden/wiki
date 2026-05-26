@@ -1,0 +1,22 @@
+# ============================================================
+# Query: activeSession
+# ============================================================
+#
+# Resolves the currently active session — the one that authored
+# the project's View (`prov:wasGeneratedBy`). Drives the in-view
+# "this session" highlight ring on nodes.
+#
+# Params:
+#   (none)
+#
+# Returns:
+#   ?session (NamedNode) — IRI of the active aleph:AlephSession.
+#
+# Example:
+#   useActiveSessionIri()
+# ============================================================
+
+SELECT ?session WHERE {
+  ?view a aleph:View ; prov:wasGeneratedBy ?session .
+}
+LIMIT 1

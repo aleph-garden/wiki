@@ -1,0 +1,28 @@
+# ============================================================
+# Query: viewEdgeNotes
+# ============================================================
+#
+# Annotated edges along the View's reasoning path. Each
+# `aleph:edgeNote` blank node carries `aleph:from` / `aleph:to`
+# (concept IRIs), an `rdfs:label` (human edge gloss), and an
+# optional `aleph:cite` reference.
+#
+# Params:
+#   (none)
+#
+# Returns:
+#   ?from  (NamedNode) — edge source concept IRI.
+#   ?to    (NamedNode) — edge target concept IRI.
+#   ?label (Literal)   — gloss to display along the edge.
+#   ?cite  (Literal)   — optional citation token (e.g. paper key).
+#
+# Example:
+#   useViewEdgeNotes()
+# ============================================================
+
+SELECT ?from ?to ?label ?cite WHERE {
+  ?view a aleph:View ; aleph:edgeNote ?en .
+  ?en aleph:from ?from ; aleph:to ?to .
+  OPTIONAL { ?en rdfs:label ?label }
+  OPTIONAL { ?en aleph:cite ?cite }
+}

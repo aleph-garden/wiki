@@ -3,6 +3,7 @@ import { computed, ref } from 'vue';
 import type { Palette } from '../palette';
 import { FONT_SERIF as SERIF } from '../palette';
 import { loadDemoGraph } from '../lib/ttl';
+import { current as route, navigate } from '../lib/router';
 import AlephGlyph from './AlephGlyph.vue';
 import OrbitalD3 from './OrbitalD3.vue';
 
@@ -21,7 +22,9 @@ const d3Ref = ref<InstanceType<typeof OrbitalD3> | null>(null);
 function resetZoom() { d3Ref.value?.resetZoom?.(); }
 
 const graph = loadDemoGraph();
-const focusId = computed(() => graph.view.path[0] ?? graph.nodes[0]?.id ?? 'GameTheory');
+const focusId = computed(() =>
+  route.focusCurie ?? graph.view.path[0] ?? graph.nodes[0]?.id ?? 'GameTheory',
+);
 
 const question = ref(graph.view.question);
 
@@ -29,6 +32,10 @@ const stops = computed(() => graph.view.path.length);
 const hops = computed(() => Math.max(0, graph.view.path.length - 1));
 
 const labelById = (id: string) => graph.nodes.find((n) => n.id === id)?.label ?? id;
+
+function selectNode(id: string) {
+  navigate({ focusCurie: id, predCurie: null });
+}
 </script>
 
 <template>
@@ -42,13 +49,13 @@ const labelById = (id: string) => graph.nodes.find((n) => n.id === id)?.label ??
   >
     <OrbitalD3
       ref="d3Ref"
-      :graph="graph"
       :palette="palette"
       :font-mono="fontMono"
       :width="width"
       :height="height"
       :focus-id="focusId"
       :narrator-side="narratorSide"
+      @select-node="selectNode"
     />
 
     <!-- zoom controls -->
@@ -167,6 +174,7 @@ const labelById = (id: string) => graph.nodes.find((n) => n.id === id)?.label ??
       >follow ↗</span>
       <button
         v-for="s in graph.view.suggestions" :key="s.target"
+        @click="selectNode(s.target)"
         :style="{
           fontFamily: SERIF,
           fontStyle: 'italic',
