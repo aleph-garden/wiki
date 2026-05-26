@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { getPod, reloadContainer } from '../lib/rdf';
+import { setActiveSessionId } from '../lib/queries';
 import type { Palette } from '../palette';
 import { renderSessionMeta } from '../lib/ttl';
 
@@ -45,6 +46,10 @@ async function startSession() {
       // up in queries (active-session, chat, etc.) without waiting for a WS
       // event.
       await reloadContainer('/aleph/sessions/');
+      // Pin selection directly — don't rely on SPARQL "newest by startedAt"
+      // (which can return null if the new triple isn't in the default graph
+      // yet for whatever reason).
+      setActiveSessionId(sessionId);
       busy.value = false;
       return;
     } catch (e) {

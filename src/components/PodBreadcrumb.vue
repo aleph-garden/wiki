@@ -92,7 +92,19 @@ const display = computed(() => segments.value);
     }"
   >
     <span :style="{ color: palette.fg }">~/</span>
-    <span :style="{ color: palette.mute }">pod</span>
+    <button
+      @click="openSegment(0)"
+      :style="{
+        background: 'transparent',
+        border: 'none',
+        padding: '0 2px',
+        font: 'inherit',
+        color: display.length === 0 ? palette.fg : palette.mute,
+        fontWeight: display.length === 0 ? 500 : 400,
+        cursor: 'pointer',
+        textDecoration: openAt === 0 ? 'underline' : 'none',
+      }"
+    >pod</button>
 
     <template v-for="(seg, i) in display" :key="i">
       <span style="opacity: .4">/</span>
