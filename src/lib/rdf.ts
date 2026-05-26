@@ -189,7 +189,14 @@ export function subscribePodChanges(onChange: (path: string) => void): () => voi
     POD_ROOT,
     async (ev) => {
       podStatus.value = 'online';
-      await reloadResource(ev.path);
+      // JSS publishes `pub <containerUrl>` to every ancestor subscriber, not
+      // the originally-changed file. A path ending in "/" means "something
+      // under this container changed" → re-scan the container.
+      if (ev.path.endsWith('/')) {
+        await reloadContainer(ev.path);
+      } else {
+        await reloadResource(ev.path);
+      }
       onChange(ev.path);
     },
     (s) => { podStatus.value = s; },
