@@ -1,4 +1,4 @@
-import init, { Store, NamedNode, type Term } from 'oxigraph/web.js';
+import init, { Store, namedNode, type Term } from 'oxigraph/web.js';
 import { PodClient } from './pod';
 
 export const PREFIXES: Record<string, string> = {
@@ -36,7 +36,7 @@ async function loadResource(s: Store, podClient: PodClient, path: string): Promi
   s.load(ttl, {
     format: 'text/turtle',
     base_iri: graphIri,
-    to_graph_name: new NamedNode(graphIri),
+    to_graph_name: namedNode(graphIri),
   });
 }
 
