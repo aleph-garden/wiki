@@ -228,6 +228,17 @@ const tfStr = computed(() => transform.value.toString());
 // reactive view: re-read node positions on every tick
 const renderNodes = computed(() => {
   void tick.value;
+  const sel = props.selectedPred ?? null;
+  // nodes that touch at least one predicate-matching edge stay normal;
+  // the rest fade when a predicate is selected.
+  const participating = new Set<string>();
+  if (sel != null) {
+    for (const l of simLinks) {
+      if (l.predicate !== sel) continue;
+      participating.add((l.source as SimNode).id);
+      participating.add((l.target as SimNode).id);
+    }
+  }
   return simNodes.map((n) => ({
     id: n.id,
     x: n.x ?? cx,
@@ -237,6 +248,7 @@ const renderNodes = computed(() => {
     kind: n.kind,
     isCenter: n.id === props.hilite,
     color: kindColor(n.kind),
+    muted: sel != null && !participating.has(n.id),
   }));
 });
 
@@ -419,21 +431,27 @@ const actionBtn = computed(() => ({
         >
           <circle
             v-if="item.isCenter"
+            class="edge-tween"
             :cx="item.x" :cy="item.y" :r="item.r + 6"
-            fill="none" :stroke="item.color" stroke-width="0.8" stroke-dasharray="2 2" opacity="0.5"
+            fill="none" :stroke="item.color" stroke-width="0.8" stroke-dasharray="2 2"
+            :opacity="item.muted ? 0.12 : 0.5"
           />
           <circle
+            class="edge-tween"
             :cx="item.x" :cy="item.y" :r="item.r"
             :fill="item.isCenter ? item.color : palette.panel"
             :stroke="item.color" stroke-width="1.5"
+            :opacity="item.muted ? 0.2 : 1"
           />
           <text
+            class="edge-tween"
             :x="item.x" :y="item.y + item.r + 11"
             :font-family="fontUI"
             :font-size="item.isCenter ? 11 : 10"
             :font-weight="item.isCenter ? 600 : 500"
             :fill="palette.fg"
             text-anchor="middle"
+            :opacity="item.muted ? 0.3 : 1"
             :style="{ paintOrder: 'stroke', stroke: palette.panel, strokeWidth: '3px', pointerEvents: 'none' }"
           >{{ item.label }}</text>
         </g>
