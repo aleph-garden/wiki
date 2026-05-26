@@ -2,7 +2,14 @@
 import { computed, ref } from 'vue';
 import type { Palette } from '../palette';
 import { FONT_SERIF as SERIF } from '../palette';
-import { loadDemoGraph } from '../lib/ttl';
+import { localName } from '../lib/rdf';
+import {
+  useAllNodes,
+  useViewPath,
+  useViewQuestion,
+  useViewSuggestions,
+  useDefaultFocusIri,
+} from '../lib/queries';
 import { current as route, navigate } from '../lib/router';
 import AlephGlyph from './AlephGlyph.vue';
 import OrbitalD3 from './OrbitalD3.vue';
@@ -21,17 +28,26 @@ const props = defineProps<{
 const d3Ref = ref<InstanceType<typeof OrbitalD3> | null>(null);
 function resetZoom() { d3Ref.value?.resetZoom?.(); }
 
-const graph = loadDemoGraph();
+const allNodes = useAllNodes();
+const viewPath = useViewPath();
+const viewQuestion = useViewQuestion();
+const viewSuggestions = useViewSuggestions();
+const defaultFocusIri = useDefaultFocusIri();
+
 const focusId = computed(() =>
-  route.focusCurie ?? graph.view.path[0] ?? graph.nodes[0]?.id ?? 'GameTheory',
+  route.focusCurie
+    ?? viewPath.value[0]
+    ?? (defaultFocusIri.value ? localName(defaultFocusIri.value) : 'GameTheory'),
 );
 
-const question = ref(graph.view.question);
+// Initial value seeded from the query; user edits decouple from the store.
+const question = ref(viewQuestion.value);
 
-const stops = computed(() => graph.view.path.length);
-const hops = computed(() => Math.max(0, graph.view.path.length - 1));
+const stops = computed(() => viewPath.value.length);
+const hops = computed(() => Math.max(0, viewPath.value.length - 1));
 
-const labelById = (id: string) => graph.nodes.find((n) => n.id === id)?.label ?? id;
+const labelById = (id: string) =>
+  allNodes.value.find((n) => n.id === id)?.label ?? id;
 
 function selectNode(id: string) {
   navigate({ focusCurie: id, predCurie: null });
@@ -173,7 +189,7 @@ function selectNode(id: string) {
         }"
       >follow ↗</span>
       <button
-        v-for="s in graph.view.suggestions" :key="s.target"
+        v-for="s in viewSuggestions" :key="s.target"
         @click="selectNode(s.target)"
         :style="{
           fontFamily: SERIF,
