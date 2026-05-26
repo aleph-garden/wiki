@@ -35,20 +35,9 @@ onBeforeMount(() => installRouter({ mode: props.initialMode }));
 
 const hasFocus = computed(() => !!route.focusCurie);
 
-watch(
-  () => [route.mode, route.focusCurie] as const,
-  ([m, f]) => {
-    if (!f && m !== 'point') navigate({ mode: 'point' }, { replace: true });
-  },
-  { immediate: true },
-);
-
 const mode = computed<Mode>({
   get: () => route.mode,
-  set: (m) => {
-    if (!hasFocus.value && m !== 'point') return;
-    navigate({ mode: m });
-  },
+  set: (m) => { navigate({ mode: m }); },
 });
 const isPoint = computed(() => mode.value === 'point');
 

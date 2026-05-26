@@ -12,8 +12,9 @@ const modes: { id: Mode; icon: string; label: string }[] = [
   { id: 'triples', icon: '≡', label: 'triples' },
 ];
 
-function isDisabled(m: Mode): boolean {
-  return !props.hasFocus && m !== 'point';
+// All modes selectable; bodies handle their own empty state.
+function isDisabled(_m: Mode): boolean {
+  return false;
 }
 
 function pick(m: Mode) {

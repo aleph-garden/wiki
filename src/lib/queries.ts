@@ -294,7 +294,7 @@ export function useDefaultFocusIri(): Ref<string | null> {
 export function useAllNodes(): Ref<GraphNode[]> {
   return computed(() => {
     const rows = select(render('allNodes'));
-    return rows.map<GraphNode>((row) => {
+    const all = rows.map<GraphNode>((row) => {
       const iriVal = row.get('iri')!.value;
       const gen = row.get('generatedBy');
       return {
@@ -306,17 +306,32 @@ export function useAllNodes(): Ref<GraphNode[]> {
         generatedBy: gen ? localName(gen.value) : undefined,
       };
     });
+    const active = selectedSessionId.value;
+    return active ? all.filter((n) => n.generatedBy === active) : all;
   });
 }
 
 export function useAllEdges(): Ref<GraphEdge[]> {
   return computed(() => {
     const rows = select(render('allEdges'));
-    return rows.map<GraphEdge>((row) => ({
+    const all = rows.map<GraphEdge>((row) => ({
       s: localName(row.get('s')!.value),
       o: localName(row.get('o')!.value),
       predicate: shrink(row.get('p')!.value),
     }));
+    // Filter edges to those whose endpoints are both in the active-session
+    // node set; otherwise orbital would draw edges to nodes it can't show.
+    const active = selectedSessionId.value;
+    if (!active) return all;
+    const allNodeRows = select(render('allNodes'));
+    const inSession = new Set<string>();
+    for (const row of allNodeRows) {
+      const gen = row.get('generatedBy');
+      if (gen && localName(gen.value) === active) {
+        inSession.add(localName(row.get('iri')!.value));
+      }
+    }
+    return all.filter((e) => inSession.has(e.s) && inSession.has(e.o));
   });
 }
 
