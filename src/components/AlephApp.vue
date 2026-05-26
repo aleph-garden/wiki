@@ -11,9 +11,11 @@ import AlephStatusBar from './AlephStatusBar.vue';
 import AlephLibrary from './AlephLibrary.vue';
 import AlephConsole from './AlephConsole.vue';
 import FloatingNarrator from './FloatingNarrator.vue';
+import StatusBanner from './StatusBanner.vue';
 import CardBody from './CardBody.vue';
 import PointBody from './PointBody.vue';
 import TriplesBody from './TriplesBody.vue';
+import { subscribePodChanges } from '../lib/rdf';
 
 const props = withDefaults(defineProps<{
   initialMode?: Mode;
@@ -79,6 +81,14 @@ onMounted(() => {
 });
 onBeforeUnmount(() => ro?.disconnect());
 
+let unsubscribe: (() => void) | null = null;
+onMounted(() => {
+  unsubscribe = subscribePodChanges(() => {
+    // store re-loaded by subscribe handler; reactive queries pick it up
+  });
+});
+onBeforeUnmount(() => { unsubscribe?.(); });
+
 const railW = computed(() => isPoint.value ? 56 : 240);
 const consoleW = computed(() =>
   isPoint.value || overlay.value ? 0 : Math.min(380, Math.max(280, vw.value * 0.26))
@@ -117,6 +127,8 @@ const narratorSide = computed(() =>
       :font-mono="FONT_MONO"
       @update:mode="(m) => mode = m"
     />
+
+    <StatusBanner :palette="skin" :font-mono="FONT_MONO" />
 
     <div
       :style="{

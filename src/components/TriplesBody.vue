@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref, onMounted } from 'vue';
 import type { Palette } from '../palette';
-import { DEMO_TTL_RAW, DEMO_TTL_SOURCE, getStore } from '../lib/rdf';
+import { getStore, getPod, POD_ROOT } from '../lib/rdf';
 import { useSparql } from '../lib/queries';
 import ConceptHeader from './ConceptHeader.vue';
 import PageLayout from './PageLayout.vue';
@@ -16,10 +16,21 @@ const props = defineProps<{
   dense: boolean;
 }>();
 
-const raw = DEMO_TTL_RAW;
-const source = DEMO_TTL_SOURCE;
+const raw = ref('');
+const source = ref('');
 const tripleCount = getStore().size;
-const byteSize = new TextEncoder().encode(raw).length;
+const byteSize = computed(() => new TextEncoder().encode(raw.value).length);
+
+onMounted(async () => {
+  const pod = getPod();
+  const entries = await pod.listContainer(POD_ROOT);
+  const first = entries.find((e) => e.endsWith('.ttl'));
+  if (first) {
+    const url = new URL(first);
+    source.value = url.pathname.split('/').pop() ?? first;
+    raw.value = (await pod.getResource(url.pathname)) ?? '';
+  }
+});
 
 const nodeCountResult = useSparql('nodeCount');
 const nodeCount = computed(() => Number(nodeCountResult.value[0]?.get('n')?.value ?? 0));
@@ -55,13 +66,13 @@ function tokenize(src: string): Token[] {
 }
 
 const lines = computed(() =>
-  raw.split('\n').map((line, i) => ({ n: i + 1, tokens: tokenize(line) })),
+  raw.value.split('\n').map((line, i) => ({ n: i + 1, tokens: tokenize(line) })),
 );
 
 const gutterWidth = computed(() => String(lines.value.length).length * 8 + 18 + 'px');
 
 const sizeLabel = computed(() => {
-  const b = byteSize;
+  const b = byteSize.value;
   return b >= 1024 ? (b / 1024).toFixed(1) + ' kb' : b + ' b';
 });
 

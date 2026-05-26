@@ -125,3 +125,28 @@ aleph:AgentShape a sh:NodeShape ;
         sh:minCount 1 ;
         sh:class foaf:Person ;
         sh:severity sh:Info ] .
+
+#################################################################
+# EditShape — every Edit names its session + time + kind
+#################################################################
+aleph:EditShape a sh:NodeShape ;
+    sh:targetClass aleph:Edit ;
+    rdfs:label "Edit Shape"@en ;
+
+    sh:property [
+        sh:path prov:wasGeneratedBy ;
+        sh:minCount 1 ; sh:maxCount 1 ;
+        sh:class aleph:AlephSession ;
+        sh:severity sh:Violation ] ;
+
+    sh:property [
+        sh:path prov:generatedAtTime ;
+        sh:minCount 1 ; sh:maxCount 1 ;
+        sh:datatype xsd:dateTime ;
+        sh:severity sh:Violation ] ;
+
+    sh:property [
+        sh:path aleph:editKind ;
+        sh:minCount 1 ; sh:maxCount 1 ;
+        sh:in ( "create" "amend" "retract" ) ;
+        sh:severity sh:Violation ] .
