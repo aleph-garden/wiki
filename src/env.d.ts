@@ -10,3 +10,8 @@ declare module '*.ttl?raw' {
   const content: string;
   export default content;
 }
+
+declare module '*.jsonld?raw' {
+  const content: string;
+  export default content;
+}

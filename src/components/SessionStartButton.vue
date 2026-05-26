@@ -4,6 +4,7 @@ import { getPod, reloadContainer } from '../lib/rdf';
 import { setActiveSessionId } from '../lib/queries';
 import type { Palette } from '../palette';
 import { renderSessionMeta } from '../lib/ttl';
+import alephContextRaw from '../../vocab/aleph-context.jsonld?raw';
 
 defineProps<{ palette: Palette; fontMono: string }>();
 
@@ -42,6 +43,14 @@ async function startSession() {
     const ttl = renderSessionMeta({ sessionId, startedAt: now, attributedTo: 'Toph' });
     try {
       await getPod().putResource(path, ttl, { ifNoneMatch: true });
+      // Drop a versioned copy of the JSON-LD context into the session so any
+      // .jsonld edits written by the agent can reference "./context.jsonld"
+      // relatively — survives vocab changes elsewhere later.
+      await getPod().putResource(
+        `/aleph/sessions/${sessionId}/context.jsonld`,
+        alephContextRaw,
+        { contentType: 'application/ld+json' },
+      );
       // Re-scan the whole /aleph/sessions/ container so the new session shows
       // up in queries (active-session, chat, etc.) without waiting for a WS
       // event.

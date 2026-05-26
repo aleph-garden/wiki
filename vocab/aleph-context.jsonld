@@ -1,0 +1,43 @@
+{
+  "@context": {
+    "aleph": "https://vocab.aleph.wiki/",
+    "prov":  "http://www.w3.org/ns/prov#",
+    "skos":  "http://www.w3.org/2004/02/skos/core#",
+    "rdfs":  "http://www.w3.org/2000/01/rdf-schema#",
+    "xsd":   "http://www.w3.org/2001/XMLSchema#",
+    "foaf":  "http://xmlns.com/foaf/0.1/",
+    "g":     "https://aleph.wiki/g/",
+
+    "ChatMessage":   "aleph:ChatMessage",
+    "Concept":       "aleph:Concept",
+    "Person":        "aleph:Person",
+    "Event":         "aleph:Event",
+    "Edit":          "aleph:Edit",
+    "AlephSession":  "aleph:AlephSession",
+
+    "position":            { "@id": "aleph:position",            "@type": "xsd:integer" },
+    "speaker":             { "@id": "aleph:speaker" },
+    "body":                { "@id": "aleph:body" },
+    "hint":                { "@id": "aleph:hint" },
+    "editKind":            { "@id": "aleph:editKind" },
+    "perceivedImportance": { "@id": "aleph:perceivedImportance", "@type": "xsd:decimal" },
+    "derivedFrom":         { "@id": "aleph:derivedFrom",         "@type": "@id" },
+    "requires":            { "@id": "aleph:requires",            "@type": "@id" },
+    "exemplifies":         { "@id": "aleph:exemplifies",         "@type": "@id" },
+
+    "wasGeneratedBy":   { "@id": "prov:wasGeneratedBy",   "@type": "@id" },
+    "wasAttributedTo":  { "@id": "prov:wasAttributedTo",  "@type": "@id" },
+    "generatedAtTime":  { "@id": "prov:generatedAtTime",  "@type": "xsd:dateTime" },
+    "startedAtTime":    { "@id": "prov:startedAtTime",    "@type": "xsd:dateTime" },
+    "wasRevisionOf":    { "@id": "prov:wasRevisionOf",    "@type": "@id" },
+
+    "prefLabel":  { "@id": "skos:prefLabel",  "@container": "@language" },
+    "altLabel":   { "@id": "skos:altLabel",   "@container": "@language" },
+    "definition": { "@id": "skos:definition", "@container": "@language" },
+    "broader":    { "@id": "skos:broader",    "@type": "@id" },
+    "related":    { "@id": "skos:related",    "@type": "@id" },
+
+    "label":   { "@id": "rdfs:label",   "@container": "@language" },
+    "comment": { "@id": "rdfs:comment", "@container": "@language" }
+  }
+}
