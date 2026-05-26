@@ -53,7 +53,9 @@
           fi
           echo "starting claude with aleph-pod MCP server"
           echo "initial prompt: prompts/agent-loop.md"
-          exec claude --append-system-prompt "$(cat prompts/agent-loop.md)"
+          # Pass loop instructions as the FIRST user message so Claude starts
+          # immediately. Without an initial user turn it would just sit idle.
+          exec claude "$(cat prompts/agent-loop.md)"
         '';
 
         devApp = pkgs.writeShellScriptBin "aleph-dev" ''
