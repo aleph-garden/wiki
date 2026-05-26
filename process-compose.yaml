@@ -1,0 +1,29 @@
+version: "0.5"
+
+processes:
+  jss:
+    command: aleph-jss
+    readiness_probe:
+      http_get:
+        host: localhost
+        port: 3000
+        path: /
+      initial_delay_seconds: 1
+      period_seconds: 2
+      failure_threshold: 10
+
+  seed:
+    command: aleph-seed
+    depends_on:
+      jss:
+        condition: process_healthy
+    availability:
+      restart: "no"
+
+  vite:
+    command: bun run dev
+    depends_on:
+      seed:
+        condition: process_completed_successfully
+    environment:
+      - VITE_POD_BASE=http://localhost:3000
