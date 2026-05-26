@@ -60,6 +60,7 @@ function formatForPath(path: string): string | null {
 }
 
 async function loadResource(s: Store, podClient: PodClient, path: string): Promise<void> {
+  console.log(`[rdf] loadResource ${path}`);
   let fetched;
   try {
     fetched = await podClient.getResourceWithType(path);
@@ -67,7 +68,8 @@ async function loadResource(s: Store, podClient: PodClient, path: string): Promi
     console.warn(`[rdf] fetch failed ${path}:`, e);
     return;
   }
-  if (!fetched) return;
+  if (!fetched) { console.log(`[rdf] no body ${path}`); return; }
+  console.log(`[rdf] fetched ${path} content-type=${fetched.contentType} bytes=${fetched.body.length}`);
   // Prefer the server's Content-Type — that's authoritative. Fall back to
   // the extension if the server didn't send one we recognise.
   const format = RDF_CONTENT_TYPES.has(fetched.contentType)
@@ -124,6 +126,7 @@ async function loadResource(s: Store, podClient: PodClient, path: string): Promi
 async function loadContainer(s: Store, podClient: PodClient, path: string): Promise<void> {
   // listContainer returns absolute URLs; extract path component for recursive calls
   const entries = await podClient.listContainer(path);
+  console.log(`[rdf] loadContainer ${path} → ${entries.length} entries:`, entries);
   await Promise.all(entries.map(async (entry) => {
     const entryPath = new URL(entry).pathname;
     if (entry.endsWith('/')) {
