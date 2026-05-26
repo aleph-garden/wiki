@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { vi as v } from 'vitest';
 import { PodClient } from '../src/lib/pod';
 
 describe('PodClient.putResource', () => {
@@ -75,5 +76,44 @@ describe('PodClient.listContainer', () => {
     const c = new PodClient('http://localhost:3000');
     const paths = await c.listContainer('/aleph/sessions/Session_1/');
     expect(paths.sort()).toEqual(['msg1.ttl', 'msg2.ttl']);
+  });
+});
+
+describe('PodClient.subscribe', () => {
+  it('opens WS, sends sub message, fires onChange on event', async () => {
+    const onMessageHandlers: ((e: { data: string }) => void)[] = [];
+    const onOpenHandlers: (() => void)[] = [];
+    const sentMessages: string[] = [];
+
+    class MockWS {
+      static OPEN = 1;
+      readyState = 0;
+      constructor(public url: string) {
+        setTimeout(() => {
+          this.readyState = 1;
+          onOpenHandlers.forEach((h) => h());
+        }, 0);
+      }
+      send(msg: string) { sentMessages.push(msg); }
+      addEventListener(ev: string, cb: any) {
+        if (ev === 'message') onMessageHandlers.push(cb);
+        if (ev === 'open') onOpenHandlers.push(cb);
+      }
+      close() {}
+    }
+    (globalThis as any).WebSocket = MockWS;
+
+    const c = new PodClient('http://localhost:3000');
+    const events: string[] = [];
+    c.subscribe('/aleph/sessions/', (ev) => events.push(ev.path));
+
+    await new Promise((r) => setTimeout(r, 5));
+    expect(sentMessages[0]).toMatch(/^sub /);
+    expect(sentMessages[0]).toContain('http://localhost:3000/aleph/sessions/');
+
+    onMessageHandlers[0]({
+      data: 'pub http://localhost:3000/aleph/sessions/Session_1/msg1.ttl',
+    });
+    expect(events).toEqual(['/aleph/sessions/Session_1/msg1.ttl']);
   });
 });

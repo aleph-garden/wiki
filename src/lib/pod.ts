@@ -6,7 +6,7 @@ export interface PutOptions {
 export class PodClient {
   constructor(public baseUrl: string) {}
 
-  private url(path: string): string {
+  url(path: string): string {
     return this.baseUrl.replace(/\/$/, '') + path;
   }
 
@@ -44,5 +44,39 @@ export class PodClient {
       }
     }
     return out;
+  }
+
+  subscribe(path: string, onChange: (ev: { path: string; kind: 'created'|'updated'|'deleted' }) => void): () => void {
+    const wsUrl = this.baseUrl.replace(/^http/, 'ws').replace(/\/$/, '') + '/';
+    let ws: WebSocket | null = null;
+    let closed = false;
+    let backoff = 1000;
+
+    const open = () => {
+      if (closed) return;
+      ws = new WebSocket(wsUrl);
+      ws.addEventListener('open', () => {
+        backoff = 1000;
+        ws!.send(`sub ${this.url(path)}`);
+      });
+      ws.addEventListener('message', (e: any) => {
+        const data: string = typeof e.data === 'string' ? e.data : '';
+        if (!data.startsWith('pub ')) return;
+        const fullUrl = data.slice(4).trim();
+        const localPath = fullUrl.replace(this.baseUrl.replace(/\/$/, ''), '');
+        onChange({ path: localPath, kind: 'updated' });
+      });
+      ws.addEventListener('close', () => {
+        if (closed) return;
+        setTimeout(open, backoff);
+        backoff = Math.min(backoff * 2, 30000);
+      });
+      ws.addEventListener('error', () => {
+        ws?.close();
+      });
+    };
+
+    open();
+    return () => { closed = true; ws?.close(); };
   }
 }
