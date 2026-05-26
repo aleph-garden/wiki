@@ -2,7 +2,8 @@
 import { computed } from 'vue';
 import type { Palette } from '../palette';
 import { FONT_MONO as MONO, FONT_SERIF as SERIF } from '../palette';
-import { useChat } from '../lib/queries';
+import { useChat, useActiveSessionId } from '../lib/queries';
+import ChatInput from './ChatInput.vue';
 
 const props = defineProps<{
   palette: Palette;
@@ -16,6 +17,7 @@ const positionStyle = computed(() =>
 
 const chat = useChat();
 const recent = computed(() => chat.value.slice(-4));
+const activeSessionId = useActiveSessionId();
 </script>
 
 <template>
@@ -94,6 +96,19 @@ const recent = computed(() => chat.value.slice(-4));
           }"
         >{{ m.body }}</div>
       </div>
+    </div>
+
+    <div
+      :style="{
+        borderTop: `1px solid ${palette.rule}`,
+        paddingTop: '12px',
+      }"
+    >
+      <ChatInput
+        :palette="palette"
+        :font-mono="MONO"
+        :session-id="activeSessionId"
+      />
     </div>
   </aside>
 </template>
