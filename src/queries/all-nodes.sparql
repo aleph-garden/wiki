@@ -1,0 +1,46 @@
+# ============================================================
+# Query: allNodes
+# ============================================================
+#
+# Every renderable node in the local graph — drives the orbital
+# / schematic graph views. Filters mirror those in `nodeCount`:
+# subject must be typed as a node kind and live under the
+# project IRI namespace (vocab-internal subjects excluded).
+#
+# `?kind` collapses the rdf:type taxonomy into one UI category
+# via EXISTS, so each subject yields exactly one row even when
+# tagged with multiple types (e.g. Concept + ImportantConcept).
+# Missing skos:prefLabel falls back to the IRI's local name in
+# the consumer.
+#
+# Params:
+#   (none)
+#
+# Returns:
+#   ?iri        (NamedNode)   — subject IRI.
+#   ?label      (Literal)     — skos:prefLabel, else rdfs:label.
+#   ?kind       (Literal)     — "person" | "event" | "concept".
+#   ?importance (xsd:decimal) — aleph:perceivedImportance, optional.
+#
+# Example:
+#   useAllNodes()
+# ============================================================
+
+SELECT DISTINCT ?iri ?label ?kind ?importance WHERE {
+  ?iri a ?someType .
+  FILTER(EXISTS {
+    ?iri a ?t .
+    FILTER(?t IN (aleph:Concept, aleph:ImportantConcept, aleph:Person,
+                  aleph:Event, foaf:Person))
+  })
+  FILTER(STRSTARTS(STR(?iri), "https://aleph.wiki/g/"))
+  OPTIONAL { ?iri skos:prefLabel ?prefLabel }
+  OPTIONAL { ?iri rdfs:label ?rdfsLabel }
+  BIND(COALESCE(?prefLabel, ?rdfsLabel) AS ?label)
+  OPTIONAL { ?iri aleph:perceivedImportance ?importance }
+  BIND(
+    IF(EXISTS { ?iri a aleph:Person } || EXISTS { ?iri a foaf:Person }, "person",
+    IF(EXISTS { ?iri a aleph:Event }, "event", "concept"))
+    AS ?kind
+  )
+}

@@ -1,0 +1,45 @@
+# ============================================================
+# Query: allEdges
+# ============================================================
+#
+# Every directed relation that the graph views render as an
+# edge. A triple qualifies only when:
+#
+#   - the predicate is one of the curated relation predicates,
+#   - both endpoints are typed as a renderable node kind, and
+#   - both endpoints live under the project IRI namespace
+#     (vocab-internal subjects excluded).
+#
+# Result rows are deduplicated even when the endpoints carry
+# multiple matching rdf:type assertions.
+#
+# Params:
+#   (none)
+#
+# Returns:
+#   ?s         (NamedNode) — subject IRI.
+#   ?p         (NamedNode) — predicate IRI (CURIE-shrunk in the
+#                            consumer via shrink()).
+#   ?o         (NamedNode) — object IRI.
+#
+# Example:
+#   useAllEdges()
+# ============================================================
+
+SELECT DISTINCT ?s ?p ?o WHERE {
+  ?s ?p ?o .
+  FILTER(?p IN (aleph:derivedFrom, aleph:requires, aleph:exemplifies,
+                skos:broader, skos:related, prov:wasAttributedTo))
+  FILTER(EXISTS {
+    ?s a ?st .
+    FILTER(?st IN (aleph:Concept, aleph:ImportantConcept, aleph:Person,
+                   aleph:Event, foaf:Person))
+  })
+  FILTER(EXISTS {
+    ?o a ?ot .
+    FILTER(?ot IN (aleph:Concept, aleph:ImportantConcept, aleph:Person,
+                   aleph:Event, foaf:Person))
+  })
+  FILTER(STRSTARTS(STR(?s), "https://aleph.wiki/g/"))
+  FILTER(STRSTARTS(STR(?o), "https://aleph.wiki/g/"))
+}

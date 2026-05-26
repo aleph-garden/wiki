@@ -9,6 +9,8 @@ import triplesForSubject from '../queries/triples-for-subject.sparql?raw';
 import backlinksForSubject from '../queries/backlinks-for-subject.sparql?raw';
 import shaclResults from '../queries/shacl-results.sparql?raw';
 import defaultFocus from '../queries/default-focus.sparql?raw';
+import allNodes from '../queries/all-nodes.sparql?raw';
+import allEdges from '../queries/all-edges.sparql?raw';
 
 // Central catalog. Add a new .sparql file under src/queries/ and register it here.
 // Each entry is the raw query body — PREFIX declarations are auto-prepended by select().
@@ -20,6 +22,8 @@ export const QUERIES = {
   backlinksForSubject,
   shaclResults,
   defaultFocus,
+  allNodes,
+  allEdges,
 } as const;
 
 export type QueryKey = keyof typeof QUERIES;
@@ -94,6 +98,20 @@ export interface ShaclEntry {
   status: 'pass' | 'warn' | 'fail';
   detail: string;
   label?: string;
+}
+
+export interface GraphNode {
+  id: string;
+  iri: string;
+  label: string;
+  kind: NodeKind;
+  importance: number;
+}
+
+export interface GraphEdge {
+  s: string;
+  o: string;
+  predicate: string;
 }
 
 // ── shaping helpers ────────────────────────────────────────
@@ -201,5 +219,32 @@ export function useDefaultFocusIri(): Ref<string | null> {
   return computed(() => {
     const rows = select(render('defaultFocus'));
     return rows[0]?.get('focus')?.value ?? null;
+  });
+}
+
+export function useAllNodes(): Ref<GraphNode[]> {
+  return computed(() => {
+    const rows = select(render('allNodes'));
+    return rows.map<GraphNode>((row) => {
+      const iriVal = row.get('iri')!.value;
+      return {
+        id: localName(iriVal),
+        iri: iriVal,
+        label: row.get('label')?.value ?? localName(iriVal),
+        kind: asKind(row.get('kind')?.value),
+        importance: Number(row.get('importance')?.value ?? 0.5),
+      };
+    });
+  });
+}
+
+export function useAllEdges(): Ref<GraphEdge[]> {
+  return computed(() => {
+    const rows = select(render('allEdges'));
+    return rows.map<GraphEdge>((row) => ({
+      s: localName(row.get('s')!.value),
+      o: localName(row.get('o')!.value),
+      predicate: shrink(row.get('p')!.value),
+    }));
   });
 }

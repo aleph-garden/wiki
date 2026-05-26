@@ -22,15 +22,21 @@
 # ============================================================
 
 SELECT (COUNT(*) AS ?n) WHERE {
-  ?s ?p ?o .
-  ?s a ?st .
-  ?o a ?ot .
-  FILTER(?p IN (aleph:derivedFrom, aleph:requires, aleph:exemplifies,
-                skos:broader, skos:related, prov:wasAttributedTo))
-  FILTER(?st IN (aleph:Concept, aleph:ImportantConcept, aleph:Person,
-                 aleph:Event, foaf:Person))
-  FILTER(?ot IN (aleph:Concept, aleph:ImportantConcept, aleph:Person,
-                 aleph:Event, foaf:Person))
-  FILTER(STRSTARTS(STR(?s), "https://aleph.wiki/g/"))
-  FILTER(STRSTARTS(STR(?o), "https://aleph.wiki/g/"))
+  SELECT DISTINCT ?s ?p ?o WHERE {
+    ?s ?p ?o .
+    FILTER(?p IN (aleph:derivedFrom, aleph:requires, aleph:exemplifies,
+                  skos:broader, skos:related, prov:wasAttributedTo))
+    FILTER(EXISTS {
+      ?s a ?st .
+      FILTER(?st IN (aleph:Concept, aleph:ImportantConcept, aleph:Person,
+                     aleph:Event, foaf:Person))
+    })
+    FILTER(EXISTS {
+      ?o a ?ot .
+      FILTER(?ot IN (aleph:Concept, aleph:ImportantConcept, aleph:Person,
+                     aleph:Event, foaf:Person))
+    })
+    FILTER(STRSTARTS(STR(?s), "https://aleph.wiki/g/"))
+    FILTER(STRSTARTS(STR(?o), "https://aleph.wiki/g/"))
+  }
 }
