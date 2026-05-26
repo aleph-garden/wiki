@@ -1,4 +1,4 @@
-import init, { Store, namedNode, type Term } from 'oxigraph/web.js';
+import init, { Store, type Term } from 'oxigraph/web.js';
 import { ref } from 'vue';
 import { PodClient } from './pod';
 
@@ -41,10 +41,13 @@ async function loadResource(s: Store, podClient: PodClient, path: string): Promi
   const ttl = await podClient.getResource(path);
   if (!ttl) return;
   const graphIri = podClient.baseUrl.replace(/\/$/, '') + path;
+  // Load into the default graph so plain SELECT queries (no GRAPH clause)
+  // match. Provenance is preserved via in-body `prov:wasGeneratedBy` / Edit
+  // triples instead of relying on graph-name. Named-graph isolation can
+  // return as a v2 with explicit GRAPH-aware queries.
   s.load(ttl, {
     format: 'text/turtle',
     base_iri: graphIri,
-    to_graph_name: namedNode(graphIri),
   });
 }
 
@@ -90,9 +93,9 @@ export function getStore(): Store {
 export async function reloadResource(path: string): Promise<void> {
   const s = getStore();
   const p = getPod();
-  const graphIri = p.baseUrl.replace(/\/$/, '') + path;
-  // delete graph, re-load
-  s.update(`DROP SILENT GRAPH <${graphIri}>`);
+  // Default-graph mode: just re-load. RDF set semantics dedupes identical
+  // triples. For mutation (amend/retract) we'd need triple-level diff which
+  // is out of scope for v1.
   await loadResource(s, p, path);
   storeVersion.value++;
 }
