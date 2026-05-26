@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import { getPod, reloadResource, select } from '../lib/rdf';
+import { getPod, reloadContainer } from '../lib/rdf';
 import type { Palette } from '../palette';
 import { renderSessionMeta } from '../lib/ttl';
 
@@ -9,29 +9,42 @@ defineProps<{ palette: Palette; fontMono: string }>();
 const busy = ref(false);
 const err = ref<string | null>(null);
 
-function currentSessionCount(): number {
-  const rows = select(`
-    SELECT (COUNT(?s) AS ?n) WHERE {
-      ?s a aleph:AlephSession .
-    }`);
-  return Number(rows[0]?.get('n')?.value ?? 0);
+// Ask the pod directly for existing Session_NNN/ containers — local store
+// may lag (no WS event yet, or WS handler hasn't run). Returns the largest N
+// already in use, 0 if none.
+async function highestSessionN(): Promise<number> {
+  const entries = await getPod().listContainer('/aleph/sessions/');
+  let max = 0;
+  for (const entry of entries) {
+    const m = entry.match(/Session_(\d+)/);
+    if (m) max = Math.max(max, Number(m[1]));
+  }
+  return max;
 }
 
 async function startSession() {
   busy.value = true;
   err.value = null;
-  const base = currentSessionCount();
   const now = new Date().toISOString();
-  // Pod may already have sessions the local store doesn't know about (stale
-  // cache, prior failed loads). On 412 keep bumping N until we land a fresh
-  // slot. Cap at 50 to avoid runaway in pathological states.
-  for (let bump = 1; bump <= 50; bump++) {
+  let base: number;
+  try {
+    base = await highestSessionN();
+  } catch (e) {
+    err.value = String(e);
+    busy.value = false;
+    return;
+  }
+  // Still race-tolerant: if two clients PUT at once, the loser bumps N.
+  for (let bump = 1; bump <= 20; bump++) {
     const sessionId = `Session_${String(base + bump).padStart(3, '0')}`;
     const path = `/aleph/sessions/${sessionId}/meta.ttl`;
     const ttl = renderSessionMeta({ sessionId, startedAt: now, attributedTo: 'Toph' });
     try {
       await getPod().putResource(path, ttl, { ifNoneMatch: true });
-      await reloadResource(path);
+      // Re-scan the whole /aleph/sessions/ container so the new session shows
+      // up in queries (active-session, chat, etc.) without waiting for a WS
+      // event.
+      await reloadContainer('/aleph/sessions/');
       busy.value = false;
       return;
     } catch (e) {
@@ -40,7 +53,6 @@ async function startSession() {
         busy.value = false;
         return;
       }
-      // 412 → slot taken on pod but missing locally; try next N
     }
   }
   err.value = 'no free session slot found';

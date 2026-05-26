@@ -97,6 +97,16 @@ export async function reloadResource(path: string): Promise<void> {
   storeVersion.value++;
 }
 
+// Re-scan an entire container subtree. Useful after a PUT that creates new
+// resources or implies new container listings (which we'd otherwise miss
+// unless a WS notification arrives).
+export async function reloadContainer(path: string): Promise<void> {
+  const s = getStore();
+  const p = getPod();
+  await loadContainer(s, p, path);
+  storeVersion.value++;
+}
+
 export type Bindings = Map<string, Term>;
 
 export function select(query: string): Bindings[] {
