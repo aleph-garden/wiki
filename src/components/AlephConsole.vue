@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import type { Palette } from '../palette';
+import ChatInput from './ChatInput.vue';
 import type { Mode } from './types';
 import {
   useAllNodes,
@@ -236,26 +237,12 @@ function formatTime(iso?: string): string {
       :style="{
         padding: '12px 16px',
         borderTop: `1px solid ${palette.rule}`,
-        fontFamily: fontMono,
-        fontSize: '12px',
-        color: palette.fg,
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px',
       }"
     >
-      <span :style="{ color: palette.sepia, fontWeight: 600 }">›</span>
-      <span :style="{ color: palette.mute, flex: 1 }">
-        /link InformationTheory --as related
-      </span>
-      <span
-        :style="{
-          display: 'inline-block',
-          width: '1.5px',
-          height: '14px',
-          background: palette.fg,
-          animation: 'ap-cursor 1s steps(2) infinite',
-        }"
+      <ChatInput
+        :palette="palette"
+        :font-mono="fontMono"
+        :session-id="activeSessionId"
       />
     </div>
   </aside>
