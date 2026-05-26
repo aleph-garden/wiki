@@ -164,6 +164,7 @@ function toggleGraphFullscreen() { graphFullscreen.value = !graphFullscreen.valu
           <Schematic
             :palette="palette" :font-ui="fontUI" :font-mono="fontMono"
             :hilite="effectiveFocus"
+            :selected-pred="selectedPred"
             :is-fullscreen="graphFullscreen"
             @toggle-fullscreen="toggleGraphFullscreen"
             @select-node="openIri"

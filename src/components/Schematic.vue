@@ -9,6 +9,7 @@ const props = defineProps<{
   fontUI: string;
   fontMono: string;
   hilite: string;
+  selectedPred?: string | null;
   isFullscreen?: boolean;
 }>();
 
@@ -253,6 +254,7 @@ interface RenderEdge {
   x2: number; y2: number;
   mx: number; my: number;
   highlit: boolean;
+  muted: boolean;
   style: EdgeStyle;
   // for tapered triangles
   poly?: string;
@@ -273,6 +275,7 @@ function taperPolygon(
 
 const renderEdges = computed<RenderEdge[]>(() => {
   void tick.value;
+  const sel = props.selectedPred ?? null;
   return simLinks.map((l, i) => {
     const s = l.source as SimNode;
     const t = l.target as SimNode;
@@ -300,7 +303,9 @@ const renderEdges = computed<RenderEdge[]>(() => {
     const tx = x2 - ux * shrinkTgt;
     const ty = y2 - uy * shrinkTgt;
 
-    const highlit = s.id === props.hilite || t.id === props.hilite;
+    const predHit = sel != null && l.predicate === sel;
+    const muted = sel != null && !predHit;
+    const highlit = !muted && (s.id === props.hilite || t.id === props.hilite || predHit);
 
     let poly: string | undefined;
     if (style === 'taper') {
@@ -315,7 +320,7 @@ const renderEdges = computed<RenderEdge[]>(() => {
     return {
       i, predicate: l.predicate,
       x1: sx, y1: sy, x2: tx, y2: ty,
-      mx, my, highlit, style, poly,
+      mx, my, highlit, muted, style, poly,
     };
   });
 });
@@ -376,14 +381,14 @@ const actionBtn = computed(() => ({
             v-if="item.style === 'taper'"
             :points="item.poly"
             :fill="item.highlit ? palette.sepia : palette.mute"
-            :opacity="item.highlit ? 0.85 : 0.5"
+            :opacity="item.muted ? 0.12 : item.highlit ? 0.85 : 0.5"
           />
           <line
             v-else
             :x1="item.x1" :y1="item.y1" :x2="item.x2" :y2="item.y2"
             :stroke="item.highlit ? palette.sepia : palette.mute"
-            :stroke-width="item.highlit ? 1 : 0.7"
-            :opacity="item.highlit ? 0.85 : 0.45"
+            :stroke-width="item.muted ? 0.5 : item.highlit ? 1 : 0.7"
+            :opacity="item.muted ? 0.12 : item.highlit ? 0.85 : 0.45"
             :marker-end="item.style === 'arrow' ? 'url(#schematic-arrow)' : null"
           />
           <text
@@ -392,7 +397,7 @@ const actionBtn = computed(() => ({
             font-size="8.5"
             :fill="palette.mute"
             text-anchor="middle"
-            :opacity="item.highlit ? 0.95 : 0.7"
+            :opacity="item.muted ? 0.18 : item.highlit ? 0.95 : 0.7"
             :style="{ paintOrder: 'stroke', stroke: palette.panel, strokeWidth: '3px', pointerEvents: 'none' }"
           >{{ item.predicate }}</text>
         </g>
