@@ -44,7 +44,10 @@
           set -e
           cd ${self}
           export PATH="${pkgs.lib.makeBinPath [ pkgs.bun jssRunner seedRunner ]}:$PATH"
+          # Default API port 8080 collides with common dev services — pin to 8085.
+          PC_PORT="''${ALEPH_PC_PORT:-8085}"
           exec ${pkgs.process-compose}/bin/process-compose \
+            -p "$PC_PORT" \
             -f ${self}/process-compose.yaml
         '';
       in {
