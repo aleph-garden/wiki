@@ -1,5 +1,4 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { vi as v } from 'vitest';
 import { PodClient } from '../src/lib/pod';
 
 describe('PodClient.putResource', () => {
@@ -105,7 +104,7 @@ describe('PodClient.subscribe', () => {
 
     const c = new PodClient('http://localhost:3000');
     const events: string[] = [];
-    c.subscribe('/aleph/sessions/', (ev) => events.push(ev.path));
+    c.subscribe('/aleph/sessions/', (ev: { path: string }) => events.push(ev.path));
 
     await new Promise((r) => setTimeout(r, 5));
     expect(sentMessages[0]).toMatch(/^sub /);
