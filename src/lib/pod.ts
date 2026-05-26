@@ -51,14 +51,14 @@ export class PodClient {
     onChange: (ev: { path: string; kind: 'created'|'updated'|'deleted' }) => void,
     onStatus?: (s: 'connecting'|'online'|'reconnecting') => void,
   ): () => void {
-    const wsUrl = this.baseUrl.replace(/^http/, 'ws').replace(/\/$/, '') + '/';
+    const wsUrl = this.baseUrl.replace(/^http/, 'ws').replace(/\/$/, '') + '/.notifications';
     let ws: WebSocket | null = null;
     let closed = false;
     let backoff = 1000;
 
     const open = () => {
       if (closed) return;
-      ws = new WebSocket(wsUrl);
+      ws = new WebSocket(wsUrl, ['solid-0.1']);
       ws.addEventListener('open', () => {
         backoff = 1000;
         onStatus?.('online');
