@@ -306,10 +306,10 @@ const renderEdges = computed<RenderEdge[]>(() => {
 
     const focusHit = s.id === props.hilite || t.id === props.hilite;
     const predHit = sel != null && l.predicate === sel;
-    // when a predicate is selected, dim only edges that are neither
-    // predicate-matching nor touching the focused node.
-    const muted = sel != null && !predHit && !focusHit;
-    const highlit = focusHit || predHit;
+    // predicate selection wins: when a predicate is active, focus-touching
+    // edges fade too unless they also match the predicate.
+    const muted = sel != null && !predHit;
+    const highlit = !muted && (focusHit || predHit);
     const accent = predHit;
 
     let poly: string | undefined;
@@ -384,12 +384,14 @@ const actionBtn = computed(() => ({
         <g v-for="item in renderEdges" :key="'e' + item.i">
           <polygon
             v-if="item.style === 'taper'"
+            class="edge-tween"
             :points="item.poly"
             :fill="item.accent ? palette.accent : item.highlit ? palette.sepia : palette.mute"
             :opacity="item.muted ? 0.12 : item.highlit ? 0.85 : 0.5"
           />
           <line
             v-else
+            class="edge-tween"
             :x1="item.x1" :y1="item.y1" :x2="item.x2" :y2="item.y2"
             :stroke="item.accent ? palette.accent : item.highlit ? palette.sepia : palette.mute"
             :stroke-width="item.muted ? 0.5 : item.accent ? 1.3 : item.highlit ? 1 : 0.7"
@@ -397,6 +399,7 @@ const actionBtn = computed(() => ({
             :marker-end="item.style === 'arrow' ? 'url(#schematic-arrow)' : null"
           />
           <text
+            class="edge-tween"
             :x="item.mx" :y="item.my - 4"
             :font-family="fontMono"
             font-size="8.5"
@@ -571,3 +574,8 @@ const actionBtn = computed(() => ({
   </div>
 </template>
 
+<style scoped>
+.edge-tween {
+  transition: fill 220ms ease, stroke 220ms ease, opacity 220ms ease, stroke-width 220ms ease;
+}
+</style>
