@@ -1,0 +1,33 @@
+# ============================================================
+# Query: shaclResults
+# ============================================================
+#
+# All SHACL validation entries embedded in the demo graph. The
+# graph carries a single `aleph:ShaclResult` root node whose
+# `aleph:result` links point at individual entries — this query
+# flattens those entries into one row each.
+#
+# Params:
+#   (none)
+#
+# Returns:
+#   ?shape  (NamedNode)  — IRI of the SHACL NodeShape that was
+#                          evaluated.
+#   ?status (Literal)    — "pass" | "warn" | "fail".
+#   ?detail (Literal)    — human-readable diagnostic text.
+#   ?label  (Literal)    — optional rdfs:label override for the
+#                          shape; falls back to the local name
+#                          of ?shape in the UI.
+#
+# Example:
+#   useSparql('shaclResults')
+# ============================================================
+
+SELECT ?shape ?status ?detail ?label WHERE {
+  ?root a aleph:ShaclResult ;
+        aleph:result ?r .
+  ?r aleph:shape ?shape ;
+     aleph:status ?status ;
+     aleph:detail ?detail .
+  OPTIONAL { ?r rdfs:label ?label }
+}

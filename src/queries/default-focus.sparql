@@ -1,0 +1,41 @@
+# ============================================================
+# Query: defaultFocus
+# ============================================================
+#
+# Picks an initial focus IRI for the card view when none is
+# supplied by the URL. Two strategies, taken in order:
+#
+#   1. Honour the curated `aleph:path` of the project's View
+#      instance — the first list element is the intended
+#      entry point.
+#
+#   2. Fall back to any Concept/ImportantConcept in the local
+#      namespace, so the UI never renders empty.
+#
+# Each branch tags rows with a numeric ?prio; ORDER BY + LIMIT 1
+# enforces that the View-path branch wins when present (UNION
+# itself has no defined branch order in SPARQL).
+#
+# Params:
+#   (none)
+#
+# Returns:
+#   ?focus (NamedNode) — IRI of the chosen subject.
+#
+# Example:
+#   useSparql('defaultFocus')
+# ============================================================
+
+SELECT ?focus WHERE {
+  {
+    ?view a aleph:View ; aleph:path/rdf:first ?focus .
+    BIND(1 AS ?prio)
+  } UNION {
+    ?focus a ?t .
+    FILTER(?t IN (aleph:Concept, aleph:ImportantConcept))
+    FILTER(STRSTARTS(STR(?focus), "https://aleph.wiki/g/"))
+    BIND(2 AS ?prio)
+  }
+}
+ORDER BY ?prio
+LIMIT 1

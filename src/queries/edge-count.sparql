@@ -1,0 +1,36 @@
+# ============================================================
+# Query: edgeCount
+# ============================================================
+#
+# Counts directed relations between renderable nodes — the same
+# population that the orbital graph draws as edges. Triples are
+# only counted when:
+#
+#   - the predicate is one of the curated relation predicates,
+#   - both endpoints are typed as a node kind, and
+#   - both endpoints live under the project IRI namespace
+#     (vocab-internal subjects are excluded).
+#
+# Params:
+#   (none)
+#
+# Returns:
+#   ?n (xsd:integer) — edge count.
+#
+# Example:
+#   useSparql('edgeCount')
+# ============================================================
+
+SELECT (COUNT(*) AS ?n) WHERE {
+  ?s ?p ?o .
+  ?s a ?st .
+  ?o a ?ot .
+  FILTER(?p IN (aleph:derivedFrom, aleph:requires, aleph:exemplifies,
+                skos:broader, skos:related, prov:wasAttributedTo))
+  FILTER(?st IN (aleph:Concept, aleph:ImportantConcept, aleph:Person,
+                 aleph:Event, foaf:Person))
+  FILTER(?ot IN (aleph:Concept, aleph:ImportantConcept, aleph:Person,
+                 aleph:Event, foaf:Person))
+  FILTER(STRSTARTS(STR(?s), "https://aleph.wiki/g/"))
+  FILTER(STRSTARTS(STR(?o), "https://aleph.wiki/g/"))
+}

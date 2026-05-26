@@ -1,0 +1,44 @@
+# ============================================================
+# Query: focusNode
+# ============================================================
+#
+# Identity + summary fields for a single subject, used to render
+# the concept header (label, importance, provenance).
+#
+# The `?kind` column collapses the rdf:type taxonomy into a
+# single UI category — values: "person", "event", or "concept"
+# (default fallback). Doing this in SPARQL keeps the per-row
+# result a single tuple even when the subject has several
+# rdf:type assertions.
+#
+# Params:
+#   subject (IRI ref) — focus IRI, e.g. `<https://aleph.wiki/g/GameTheory>`
+#                       or the CURIE `:GameTheory`. Pass through
+#                       `iri()` for safe substitution.
+#
+# Returns:
+#   ?iri          (NamedNode)   — echoes the subject IRI.
+#   ?label        (Literal)     — skos:prefLabel, else rdfs:label.
+#   ?kind         (Literal)     — "person" | "event" | "concept".
+#   ?importance   (xsd:decimal) — aleph:perceivedImportance, optional.
+#   ?generatedBy  (NamedNode)   — prov:wasGeneratedBy session, optional.
+#
+# Example:
+#   useFocusNode(focusIdRef)
+# ============================================================
+
+SELECT ?iri ?label ?kind ?importance ?generatedBy WHERE {
+  BIND({{subject}} AS ?iri)
+  ?iri a ?someType .
+  OPTIONAL { ?iri skos:prefLabel ?prefLabel }
+  OPTIONAL { ?iri rdfs:label ?rdfsLabel }
+  BIND(COALESCE(?prefLabel, ?rdfsLabel) AS ?label)
+  OPTIONAL { ?iri aleph:perceivedImportance ?importance }
+  OPTIONAL { ?iri prov:wasGeneratedBy ?generatedBy }
+  BIND(
+    IF(EXISTS { ?iri a aleph:Person } || EXISTS { ?iri a foaf:Person }, "person",
+    IF(EXISTS { ?iri a aleph:Event }, "event", "concept"))
+    AS ?kind
+  )
+}
+LIMIT 1

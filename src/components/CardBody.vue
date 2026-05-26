@@ -1,8 +1,18 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import type { Palette } from '../palette';
 import { FONT_UI as SANS } from '../palette';
-import { loadDemoGraph, type FocusTriple, type Backlink, type NodeKind } from '../lib/ttl';
+import { localName } from '../lib/rdf';
+import {
+  useFocusNode,
+  useFocusTriples,
+  useBacklinks,
+  useShaclResults,
+  useCount,
+  useDefaultFocusIri,
+  type FocusTriple,
+  type NodeKind,
+} from '../lib/queries';
 import { navigate } from '../lib/router';
 import ConceptHeader from './ConceptHeader.vue';
 import PageLayout from './PageLayout.vue';
@@ -20,15 +30,20 @@ const props = defineProps<{
   selectedPred?: string | null;
 }>();
 
-const graph = loadDemoGraph();
+const defaultFocusIri = useDefaultFocusIri();
 
 const effectiveFocus = computed(() => {
   const c = props.focusCurie;
-  if (!c) return graph.focusId;
-  return c.startsWith(':') ? c.slice(1) : c;
+  if (c) return c.startsWith(':') ? c.slice(1) : c;
+  return defaultFocusIri.value ? localName(defaultFocusIri.value) : '';
 });
 
-const focusTriples = computed(() => graph.triplesFor(effectiveFocus.value));
+const focusNode = useFocusNode(effectiveFocus);
+const focusTriples = useFocusTriples(effectiveFocus);
+const backlinks = useBacklinks(effectiveFocus);
+const shacl = useShaclResults();
+const nodeCount = useCount('nodeCount');
+const edgeCount = useCount('edgeCount');
 
 function selectPredicate(predCurie: string) {
   navigate({ mode: 'card', focusCurie: ':' + effectiveFocus.value, predCurie });
@@ -43,7 +58,7 @@ const IDENTITY = new Set(['a', 'skos:prefLabel', 'skos:altLabel', 'skos:definiti
 const MEASUREMENT = new Set(['aleph:perceivedImportance']);
 
 const groups = computed<Group[]>(() => {
-  const t = focusTriples.value;
+  const t: FocusTriple[] = focusTriples.value;
   const identity     = t.filter((x) => IDENTITY.has(x.predicate));
   const measurements = t.filter((x) => MEASUREMENT.has(x.predicate));
   const provenance   = t.filter((x) => x.predicate.startsWith('prov:'));
@@ -60,8 +75,6 @@ const groups = computed<Group[]>(() => {
   ].filter((g) => g.items.length > 0);
 });
 
-const backlinks = computed(() => graph.backlinksFor(effectiveFocus.value));
-
 function backColor(k: NodeKind) {
   if (k === 'person') return props.palette.kindPerson;
   if (k === 'event')  return props.palette.kindEvent;
@@ -74,13 +87,20 @@ function tripleColor(kind: FocusTriple['kind']) {
   return props.palette.fg;
 }
 
-const shaclPasses = computed(() => graph.shacl.filter((s) => s.status === 'pass').length);
-const shaclTotal = computed(() => graph.shacl.length);
+const shaclPasses = computed(() => shacl.value.filter((s) => s.status === 'pass').length);
+const shaclTotal = computed(() => shacl.value.length);
+
+const graphFullscreen = ref(false);
+function toggleGraphFullscreen() { graphFullscreen.value = !graphFullscreen.value; }
 </script>
 
 <template>
   <PageLayout :palette="palette" :width="width" :dense="dense">
-    <ConceptHeader :palette="palette" :font-mono="fontMono" :font-prose="fontProse" />
+    <ConceptHeader
+      v-if="!graphFullscreen"
+      :palette="palette" :font-mono="fontMono" :font-prose="fontProse"
+      :node="focusNode" :triples="focusTriples" :backlinks="backlinks.length"
+    />
 
     <div style="display: flex; gap: 14px; flex: 1; min-height: 0">
       <!-- left column: graph + triples -->
@@ -95,8 +115,10 @@ const shaclTotal = computed(() => graph.shacl.length);
             position: 'relative',
             display: 'flex',
             flexDirection: 'column',
-            height: '300px',
-            flexShrink: 0,
+            height: graphFullscreen ? '100%' : Math.round(height * 0.5) + 'px',
+            flex: graphFullscreen ? '1 1 auto' : '0 0 auto',
+            flexShrink: graphFullscreen ? 1 : 0,
+            minHeight: 0,
           }"
         >
           <div
@@ -125,7 +147,7 @@ const shaclTotal = computed(() => graph.shacl.length);
                   textTransform: 'none',
                   letterSpacing: 0,
                 }"
-              >{{ graph.nodes.length }} nodes · {{ graph.edges.length }} edges</span>
+              >{{ nodeCount }} nodes · {{ edgeCount }} edges</span>
             </div>
             <div style="display: flex; gap: 10px; text-transform: none; letter-spacing: 0">
               <span style="display: flex; align-items: center; gap: 4px">
@@ -139,11 +161,18 @@ const shaclTotal = computed(() => graph.shacl.length);
               </span>
             </div>
           </div>
-          <Schematic :palette="palette" :font-ui="fontUI" :font-mono="fontMono" :hilite="effectiveFocus" />
+          <Schematic
+            :palette="palette" :font-ui="fontUI" :font-mono="fontMono"
+            :hilite="effectiveFocus"
+            :is-fullscreen="graphFullscreen"
+            @toggle-fullscreen="toggleGraphFullscreen"
+            @select-node="openIri"
+          />
         </div>
 
         <!-- triples card -->
         <div
+          v-if="!graphFullscreen"
           :style="{
             background: palette.panel,
             border: `1px solid ${palette.rule}`,
@@ -263,7 +292,7 @@ const shaclTotal = computed(() => graph.shacl.length);
       </div>
 
       <!-- right column: backlinks + shacl -->
-      <div style="width: 240px; display: flex; flex-direction: column; gap: 14px">
+      <div v-if="!graphFullscreen" style="width: 240px; display: flex; flex-direction: column; gap: 14px">
         <div
           :style="{
             background: palette.panel,
@@ -306,6 +335,7 @@ const shaclTotal = computed(() => graph.shacl.length);
             <div
               v-for="(b, i) in backlinks"
               :key="i"
+              @click="openIri(b.from)"
               style="padding: 6px 12px; display: flex; flex-direction: column; gap: 2px; cursor: pointer; border-left: 2px solid transparent"
             >
               <div
@@ -378,7 +408,7 @@ const shaclTotal = computed(() => graph.shacl.length);
           </div>
           <div style="padding: 8px; display: flex; flex-direction: column; gap: 6px; overflow: auto">
             <div
-              v-for="(s, i) in graph.shacl"
+              v-for="(s, i) in shacl"
               :key="i"
               :style="{
                 padding: '7px 9px',

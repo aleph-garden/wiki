@@ -1,0 +1,24 @@
+# ============================================================
+# Query: nodeCount
+# ============================================================
+#
+# Counts distinct subjects in the default graph that are typed
+# as a renderable node (Concept / Person / Event). Subjects from
+# the vocab namespace are excluded — only data IRIs under the
+# project namespace `https://aleph.wiki/g/` are counted.
+#
+# Params:
+#   (none)
+#
+# Returns:
+#   ?n (xsd:integer) — node count.
+#
+# Example:
+#   useSparql('nodeCount')
+# ============================================================
+
+SELECT (COUNT(DISTINCT ?s) AS ?n) WHERE {
+  ?s a ?t .
+  FILTER(?t IN (aleph:Concept, aleph:ImportantConcept, aleph:Person, aleph:Event, foaf:Person))
+  FILTER(STRSTARTS(STR(?s), "https://aleph.wiki/g/"))
+}

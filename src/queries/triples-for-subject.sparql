@@ -1,0 +1,30 @@
+# ============================================================
+# Query: triplesForSubject
+# ============================================================
+#
+# Outgoing predicate/object pairs for a single focus subject.
+# Drives the "Triples" panel in the card view. Layout-only hints
+# (aleph:layoutX / aleph:layoutY) are filtered out because they
+# carry no user-facing meaning.
+#
+# Result rows are returned in arbitrary order — caller is
+# responsible for grouping/sorting (e.g. identity vs. relations
+# vs. provenance buckets in CardBody.vue).
+#
+# Params:
+#   subject (IRI ref) — focus IRI, e.g. `:GameTheory`. Use `iri()`.
+#
+# Returns:
+#   ?p (NamedNode) — predicate IRI.
+#   ?o (Term)      — object. May be NamedNode (relation/type) or
+#                    Literal (value with optional language/datatype).
+#
+# Example:
+#   useSparql('triplesForSubject',
+#             computed(() => ({ subject: iri(focusId.value) })))
+# ============================================================
+
+SELECT ?p ?o WHERE {
+  {{subject}} ?p ?o .
+  FILTER(?p != aleph:layoutX && ?p != aleph:layoutY)
+}

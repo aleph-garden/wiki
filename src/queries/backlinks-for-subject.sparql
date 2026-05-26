@@ -1,0 +1,75 @@
+# ============================================================
+# Query: backlinksForSubject
+# ============================================================
+#
+# Incoming references to a subject — what cites or relates to
+# the focus from elsewhere. Two flavours combined via UNION:
+#
+#   1. Direct backlinks: `?from ?predicate <focus>` where the
+#      predicate is one of the curated relation predicates and
+#      `?from` is itself a renderable node.
+#
+#   2. 2-hop chains via skos:broader: `?from skos:broader ?mid`
+#      → `?mid skos:broader <focus>`. The intermediate node's
+#      label is returned as ?viaLabel so the UI can render
+#      "broader · via Mechanism Design" style hints. Both ?from
+#      and ?mid must be typed nodes — otherwise vocabulary
+#      subjects bleed into the list.
+#
+# The `?kind` column is computed via EXISTS so each row carries
+# a single UI category ("person" | "event" | "concept") even
+# when ?from has multiple rdf:type assertions. Without that,
+# DISTINCT alone would still emit one row per type.
+#
+# Params:
+#   subject (IRI ref) — focus IRI. Use `iri()`.
+#
+# Returns:
+#   ?from       (NamedNode) — referencing node IRI.
+#   ?fromLabel  (Literal)   — skos:prefLabel of ?from, optional.
+#   ?kind       (Literal)   — "person" | "event" | "concept".
+#   ?predicate  (NamedNode) — relation predicate; for 2-hop rows
+#                             this is hard-bound to skos:broader.
+#   ?viaLabel   (Literal)   — label of the intermediate node;
+#                             present only on 2-hop rows.
+#
+# Example:
+#   useBacklinks(focusIdRef)
+# ============================================================
+
+SELECT DISTINCT ?from ?fromLabel ?kind ?predicate ?viaLabel WHERE {
+  {
+    ?from ?predicate {{subject}} .
+    FILTER(?predicate IN (aleph:derivedFrom, aleph:requires, aleph:exemplifies,
+                          skos:broader, skos:related, prov:wasAttributedTo))
+    FILTER(EXISTS {
+      ?from a ?ft .
+      FILTER(?ft IN (aleph:Concept, aleph:ImportantConcept, aleph:Person,
+                     aleph:Event, foaf:Person))
+    })
+    OPTIONAL { ?from skos:prefLabel ?fromLabel }
+  }
+  UNION
+  {
+    ?from skos:broader ?mid .
+    ?mid skos:broader {{subject}} .
+    FILTER(EXISTS {
+      ?from a ?ft .
+      FILTER(?ft IN (aleph:Concept, aleph:ImportantConcept, aleph:Person,
+                     aleph:Event, foaf:Person))
+    })
+    FILTER(EXISTS {
+      ?mid a ?mt .
+      FILTER(?mt IN (aleph:Concept, aleph:ImportantConcept, aleph:Person,
+                     aleph:Event, foaf:Person))
+    })
+    BIND(skos:broader AS ?predicate)
+    OPTIONAL { ?from skos:prefLabel ?fromLabel }
+    OPTIONAL { ?mid skos:prefLabel ?viaLabel }
+  }
+  BIND(
+    IF(EXISTS { ?from a aleph:Person } || EXISTS { ?from a foaf:Person }, "person",
+    IF(EXISTS { ?from a aleph:Event }, "event", "concept"))
+    AS ?kind
+  )
+}

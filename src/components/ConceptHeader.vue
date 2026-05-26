@@ -1,15 +1,56 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import type { Palette } from '../palette';
+import type { FocusNode, FocusTriple } from '../lib/queries';
 
-defineProps<{
+const props = defineProps<{
   palette: Palette;
   fontMono: string;
   fontProse: string;
+  node: FocusNode | null;
+  triples: FocusTriple[];
+  backlinks: number;
 }>();
+
+function stripQuotes(s: string): string {
+  // literals from triplesFor are sometimes JSON-quoted (e.g. "foo"@en)
+  const m = s.match(/^"((?:[^"\\]|\\.)*)"(?:@([a-z-]+))?(?:\^\^.+)?$/i);
+  if (!m) return s;
+  try { return JSON.parse('"' + m[1] + '"'); } catch { return m[1]; }
+}
+
+const types = computed(() =>
+  props.triples.filter((t) => t.predicate === 'a').map((t) => t.object),
+);
+
+const definition = computed(() => {
+  const t = props.triples.find((x) => x.predicate === 'skos:definition');
+  return t ? stripQuotes(t.object) : '';
+});
+
+const altLabel = computed(() => {
+  const t = props.triples.find((x) => x.predicate === 'skos:altLabel');
+  return t ? stripQuotes(t.object) : '';
+});
+
+const importance = computed(() => props.node?.importance ?? 0);
+const importancePct = computed(() => Math.round(importance.value * 100));
+
+function typeColor(t: string) {
+  if (t.startsWith('aleph:Important')) return props.palette.sepia;
+  if (t === 'aleph:Person' || t === 'foaf:Person') return props.palette.kindPerson;
+  if (t === 'aleph:Event') return props.palette.kindEvent;
+  return props.palette.kindConcept;
+}
+
+async function copyIri() {
+  if (!props.node?.iri) return;
+  try { await navigator.clipboard.writeText(props.node.iri); } catch { /* noop */ }
+}
 </script>
 
 <template>
-  <header style="display: flex; flex-direction: column; gap: 8px">
+  <header v-if="node" style="display: flex; flex-direction: column; gap: 8px">
     <div
       :style="{
         fontFamily: fontMono,
@@ -21,8 +62,9 @@ defineProps<{
       }"
     >
       <span>IRI</span>
-      <span :style="{ color: palette.fg }">https://alice.solid/pod/concepts#GameTheory</span>
+      <span :style="{ color: palette.fg, wordBreak: 'break-all' }">{{ node.iri }}</span>
       <span
+        @click="copyIri"
         :style="{
           padding: '1px 6px',
           borderRadius: '3px',
@@ -46,7 +88,7 @@ defineProps<{
           letterSpacing: '-0.8px',
           color: palette.fg,
         }"
-      >Game Theory</h1>
+      >{{ node.label }}</h1>
       <div style="flex: 1" />
       <div
         :style="{
@@ -55,30 +97,24 @@ defineProps<{
           fontFamily: fontMono,
           fontSize: '11px',
           color: palette.fg,
+          flexWrap: 'wrap',
         }"
       >
         <span
+          v-for="t in types" :key="t"
           :style="{
             padding: '3px 8px',
             borderRadius: '3px',
-            background: `${palette.kindConcept}1a`,
-            color: palette.kindConcept,
+            background: `${typeColor(t)}1a`,
+            color: typeColor(t),
             fontWeight: 600,
           }"
-        >skos:Concept</span>
-        <span
-          :style="{
-            padding: '3px 8px',
-            borderRadius: '3px',
-            background: `${palette.sepia}1a`,
-            color: palette.sepia,
-            fontWeight: 600,
-          }"
-        >aleph:ImportantConcept</span>
+        >{{ t }}</span>
       </div>
     </div>
 
     <div
+      v-if="definition || altLabel"
       :style="{
         fontFamily: fontProse,
         fontSize: '15px',
@@ -87,8 +123,8 @@ defineProps<{
         maxWidth: '640px',
       }"
     >
-      The mathematical study of strategic interaction among rational agents.
-      <span style="opacity: .55">  ·  "Theory of games"@en</span>
+      <span v-if="definition">{{ definition }}</span>
+      <span v-if="altLabel" style="opacity: .55">{{ definition ? '  ·  ' : '' }}“{{ altLabel }}”</span>
     </div>
 
     <div
@@ -99,6 +135,7 @@ defineProps<{
         fontFamily: fontMono,
         fontSize: '10px',
         color: palette.mute,
+        flexWrap: 'wrap',
       }"
     >
       <span>perceivedImportance</span>
@@ -111,15 +148,15 @@ defineProps<{
           overflow: 'hidden',
         }"
       >
-        <div :style="{ width: '95%', height: '100%', background: palette.sepia }" />
+        <div :style="{ width: importancePct + '%', height: '100%', background: palette.sepia }" />
       </div>
-      <span :style="{ color: palette.fg }">0.95</span>
+      <span :style="{ color: palette.fg }">{{ importance.toFixed(2) }}</span>
       <span style="opacity: .4">·</span>
-      <span>14 backlinks</span>
-      <span style="opacity: .4">·</span>
-      <span>session 042</span>
-      <span style="opacity: .4">·</span>
-      <span>edited 12 Apr 2026 14:23 UTC</span>
+      <span>{{ backlinks }} backlinks</span>
+      <template v-if="node.generatedBy">
+        <span style="opacity: .4">·</span>
+        <span>{{ node.generatedBy.toLowerCase().replace(/_/g, ' ') }}</span>
+      </template>
     </div>
   </header>
 </template>
