@@ -89,15 +89,22 @@ async function loadResource(s: Store, podClient: PodClient, path: string): Promi
       // Document loader that follows relative @context URLs via the pod.
       const documentLoader = async (url: string) => {
         const res = await fetch(url, { headers: { Accept: 'application/ld+json' } });
+        if (!res.ok) throw new Error(`context fetch ${url} → ${res.status}`);
         const body = await res.json();
-        return { contextUrl: undefined, documentUrl: url, document: body };
+        return { contextUrl: null, documentUrl: url, document: body };
       };
       const nquads = await jsonld.toRDF(doc, {
         base: graphIri,
         format: 'application/n-quads',
         documentLoader,
       });
+      const before = s.size;
       s.load(nquads, { format: 'application/n-quads' });
+      const added = s.size - before;
+      console.log(`[rdf] ${path} → ${added} quads from jsonld (nquads bytes=${(nquads as string).length})`);
+      if (added === 0 && (nquads as string).length < 10) {
+        console.warn(`[rdf] jsonld expansion empty — context loader output:`, (nquads as string).slice(0, 200));
+      }
     } catch (e) {
       console.warn(`[rdf] jsonld expand failed ${path}:`, e);
     }
