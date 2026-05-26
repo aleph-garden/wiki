@@ -5,6 +5,10 @@ import { PodClient } from './pod';
 export type PodStatus = 'connecting' | 'online' | 'offline' | 'reconnecting';
 export const podStatus = ref<PodStatus>('connecting');
 
+// Bumped on every successful load / reload. select()/ask() read this so any
+// computed() that wraps a query auto-invalidates when the store mutates.
+export const storeVersion = ref(0);
+
 export const PREFIXES: Record<string, string> = {
   '': 'https://aleph.wiki/g/',
   aleph: 'https://vocab.aleph.wiki/',
@@ -72,6 +76,7 @@ export function initStore(): Promise<Store> {
       podStatus.value = 'offline';
     }
     store = s;
+    storeVersion.value++;
     return s;
   })();
   return ready;
@@ -89,11 +94,15 @@ export async function reloadResource(path: string): Promise<void> {
   // delete graph, re-load
   s.update(`DROP SILENT GRAPH <${graphIri}>`);
   await loadResource(s, p, path);
+  storeVersion.value++;
 }
 
 export type Bindings = Map<string, Term>;
 
 export function select(query: string): Bindings[] {
+  // Touch the version ref so vue's reactivity system tracks this dependency
+  // whenever select() is called from inside a computed().
+  void storeVersion.value;
   const q = `${SPARQL_PREFIX_BLOCK}\n${query}`;
   const result = getStore().query(q);
   if (!Array.isArray(result)) {
@@ -103,6 +112,7 @@ export function select(query: string): Bindings[] {
 }
 
 export function ask(query: string): boolean {
+  void storeVersion.value;
   const q = `${SPARQL_PREFIX_BLOCK}\n${query}`;
   const result = getStore().query(q);
   if (typeof result !== 'boolean') {
