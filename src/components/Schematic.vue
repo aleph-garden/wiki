@@ -154,7 +154,7 @@ onBeforeUnmount(() => sim.stop());
 
 // ── zoom / pan ──
 const svgEl = ref<SVGSVGElement | null>(null);
-const INITIAL_K = 1.5;
+const INITIAL_K = 1.1;
 const initialTransform = d3.zoomIdentity
   .translate((1 - INITIAL_K) * cx, (1 - INITIAL_K) * cy)
   .scale(INITIAL_K);
