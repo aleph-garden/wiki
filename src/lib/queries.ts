@@ -19,6 +19,7 @@ import viewQuestion from '../queries/view-question.sparql?raw';
 import viewSuggestions from '../queries/view-suggestions.sparql?raw';
 import activeSession from '../queries/active-session.sparql?raw';
 import sessions from '../queries/sessions.sparql?raw';
+import chat from '../queries/chat.sparql?raw';
 
 // Central catalog. Add a new .sparql file under src/queries/ and register it here.
 // Each entry is the raw query body — PREFIX declarations are auto-prepended by select().
@@ -40,6 +41,7 @@ export const QUERIES = {
   viewSuggestions,
   activeSession,
   sessions,
+  chat,
 } as const;
 
 export type QueryKey = keyof typeof QUERIES;
@@ -159,6 +161,16 @@ export interface ViewPathNote {
 export interface ViewSuggestion {
   target: string;
   reason: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  position: number;
+  speaker: 'user' | 'agent';
+  body: string;
+  hint?: string;
+  generatedAt?: string;
+  session: string;
 }
 
 export interface Session {
@@ -358,6 +370,25 @@ export function useViewSuggestions(): Ref<ViewSuggestion[]> {
       target: localName(row.get('target')!.value),
       reason: row.get('reason')?.value ?? '',
     }));
+  });
+}
+
+export function useChat(): Ref<ChatMessage[]> {
+  return computed(() => {
+    const rows = select(render('chat'));
+    return rows.map<ChatMessage>((row) => {
+      const speakerRaw = row.get('speaker')?.value ?? 'agent';
+      const sessionIri = row.get('session')!.value;
+      return {
+        id: localName(row.get('msg')!.value),
+        position: Number(row.get('position')?.value ?? 0),
+        speaker: speakerRaw === 'user' ? 'user' : 'agent',
+        body: row.get('body')?.value ?? '',
+        hint: row.get('hint')?.value,
+        generatedAt: row.get('generatedAt')?.value,
+        session: localName(sessionIri),
+      };
+    });
   });
 }
 

@@ -1,0 +1,35 @@
+# ============================================================
+# Query: chat
+# ============================================================
+#
+# All `aleph:ChatMessage` instances in conversation order. Drives
+# the agent-console transcript. `?speaker` is the raw string —
+# the consumer collapses anything non-"user" to "agent". Session
+# IRI is pinned so the console can match against the active one.
+#
+# Params:
+#   (none)
+#
+# Returns:
+#   ?msg         (NamedNode)   — message IRI.
+#   ?position    (xsd:integer) — sort key; ascending = chronological.
+#   ?speaker     (Literal)     — "user" | "agent" (others coerced).
+#   ?body        (Literal)     — message text.
+#   ?hint        (Literal)     — optional speaker hint (e.g. "insight").
+#   ?generatedAt (xsd:dateTime)— optional ISO timestamp.
+#   ?session     (NamedNode)   — owning session IRI.
+#
+# Example:
+#   useChat()
+# ============================================================
+
+SELECT ?msg ?position ?speaker ?body ?hint ?generatedAt ?session WHERE {
+  ?msg a aleph:ChatMessage ;
+       aleph:position ?position ;
+       aleph:speaker  ?speaker ;
+       aleph:body     ?body ;
+       prov:wasGeneratedBy ?session .
+  OPTIONAL { ?msg aleph:hint ?hint }
+  OPTIONAL { ?msg prov:generatedAtTime ?generatedAt }
+}
+ORDER BY ?position

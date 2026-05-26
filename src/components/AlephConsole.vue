@@ -2,7 +2,13 @@
 import { computed } from 'vue';
 import type { Palette } from '../palette';
 import type { Mode } from './types';
-import { loadDemoGraph } from '../lib/ttl';
+import {
+  useAllNodes,
+  useAllEdges,
+  useSessions,
+  useActiveSessionId,
+  useChat,
+} from '../lib/queries';
 
 defineProps<{
   palette: Palette;
@@ -13,21 +19,28 @@ defineProps<{
   mode: Mode;
 }>();
 
-const graph = loadDemoGraph();
+const allNodes = useAllNodes();
+const allEdges = useAllEdges();
+const allSessions = useSessions();
+const activeSessionId = useActiveSessionId();
+const chat = useChat();
 
 const activeAgent = computed(() => {
-  const s = graph.sessions.find((x) => x.id === graph.activeSession);
-  return s?.agent ?? '—';
+  const id = activeSessionId.value;
+  if (!id) return '—';
+  return allSessions.value.find((x) => x.id === id)?.agent ?? '—';
 });
 
 // Edges already committed by the active session.
 // Endpoint is considered "of the session" when its node was generatedBy this session.
 interface Proposed { s: string; p: string; o: string; ok: 'committed' | 'pending' }
 const proposed = computed<Proposed[]>(() => {
+  const sid = activeSessionId.value;
+  if (!sid) return [];
   const inSession = new Set(
-    graph.nodes.filter((n) => n.generatedBy === graph.activeSession).map((n) => n.id),
+    allNodes.value.filter((n) => n.generatedBy === sid).map((n) => n.id),
   );
-  return graph.edges
+  return allEdges.value
     .filter((e) => inSession.has(e.s) || inSession.has(e.o))
     .slice(0, 3)
     .map((e) => ({ s: `:${e.s}`, p: e.predicate, o: `:${e.o}`, ok: 'committed' as const }));
@@ -90,7 +103,7 @@ function formatTime(iso?: string): string {
         fontFamily: fontUI,
       }"
     >
-      <div v-for="m in graph.chat" :key="m.position">
+      <div v-for="m in chat" :key="m.id">
         <div
           :style="{
             fontFamily: fontMono,
@@ -141,7 +154,7 @@ function formatTime(iso?: string): string {
             gap: '8px',
           }"
         >
-          <span>committed in {{ graph.activeSession.toLowerCase() }}</span>
+          <span>committed in {{ (activeSessionId ?? '').toLowerCase() }}</span>
           <span :style="{ flex: 1, height: '1px', background: `${palette.gold}40` }" />
         </div>
         <div
