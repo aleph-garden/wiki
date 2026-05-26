@@ -1,5 +1,5 @@
-import init, { Store, type Term } from 'oxigraph/web.js';
-import demoTtl from '../../data/demo-game-theory.ttl?raw';
+import init, { Store, NamedNode, type Term } from 'oxigraph/web.js';
+import { PodClient } from './pod';
 
 export const PREFIXES: Record<string, string> = {
   '': 'https://aleph.wiki/g/',
@@ -10,24 +10,61 @@ export const PREFIXES: Record<string, string> = {
   rdf: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
   rdfs: 'http://www.w3.org/2000/01/rdf-schema#',
   xsd: 'http://www.w3.org/2001/XMLSchema#',
+  ldp: 'http://www.w3.org/ns/ldp#',
 };
 
 export const SPARQL_PREFIX_BLOCK = Object.entries(PREFIXES)
   .map(([pfx, ns]) => `PREFIX ${pfx}: <${ns}>`)
   .join('\n');
 
-export const DEMO_TTL_SOURCE = 'demo-game-theory.ttl';
-export const DEMO_TTL_RAW = demoTtl;
+export const POD_BASE = (import.meta as any).env?.VITE_POD_BASE ?? 'http://localhost:3000';
+export const POD_ROOT = '/aleph/';
 
 let store: Store | null = null;
 let ready: Promise<Store> | null = null;
+let pod: PodClient | null = null;
+
+export function getPod(): PodClient {
+  if (!pod) pod = new PodClient(POD_BASE);
+  return pod;
+}
+
+async function loadResource(s: Store, podClient: PodClient, path: string): Promise<void> {
+  const ttl = await podClient.getResource(path);
+  if (!ttl) return;
+  const graphIri = podClient.baseUrl.replace(/\/$/, '') + path;
+  s.load(ttl, {
+    format: 'text/turtle',
+    base_iri: graphIri,
+    to_graph_name: new NamedNode(graphIri),
+  });
+}
+
+async function loadContainer(s: Store, podClient: PodClient, path: string): Promise<void> {
+  // listContainer returns absolute URLs; extract path component for recursive calls
+  const entries = await podClient.listContainer(path);
+  await Promise.all(entries.map(async (entry) => {
+    // entry is a full URL like http://localhost:3000/aleph/foo.ttl
+    const entryPath = new URL(entry).pathname;
+    if (entry.endsWith('/')) {
+      await loadContainer(s, podClient, entryPath);
+    } else if (entry.endsWith('.ttl')) {
+      await loadResource(s, podClient, entryPath);
+    }
+  }));
+}
 
 export function initStore(): Promise<Store> {
   if (ready) return ready;
   ready = (async () => {
     await init();
     const s = new Store();
-    s.load(demoTtl, { format: 'text/turtle', base_iri: PREFIXES[''] });
+    const p = getPod();
+    try {
+      await loadContainer(s, p, POD_ROOT);
+    } catch (err) {
+      console.warn('pod load failed:', err);
+    }
     store = s;
     return s;
   })();
@@ -37,6 +74,15 @@ export function initStore(): Promise<Store> {
 export function getStore(): Store {
   if (!store) throw new Error('RDF store not initialised — await initStore() first');
   return store;
+}
+
+export async function reloadResource(path: string): Promise<void> {
+  const s = getStore();
+  const p = getPod();
+  const graphIri = p.baseUrl.replace(/\/$/, '') + path;
+  // delete graph, re-load
+  s.update(`DROP SILENT GRAPH <${graphIri}>`);
+  await loadResource(s, p, path);
 }
 
 export type Bindings = Map<string, Term>;
@@ -71,4 +117,3 @@ export function localName(iri: string): string {
   const h = iri.lastIndexOf('#');
   return iri.slice(Math.max(s, h) + 1);
 }
-
