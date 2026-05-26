@@ -9,34 +9,42 @@ defineProps<{ palette: Palette; fontMono: string }>();
 const busy = ref(false);
 const err = ref<string | null>(null);
 
-function nextSessionId(): string {
+function currentSessionCount(): number {
   const rows = select(`
     SELECT (COUNT(?s) AS ?n) WHERE {
       ?s a aleph:AlephSession .
     }`);
-  const n = Number(rows[0]?.get('n')?.value ?? 0);
-  return `Session_${String(n + 1).padStart(3, '0')}`;
+  return Number(rows[0]?.get('n')?.value ?? 0);
 }
 
 async function startSession() {
   busy.value = true;
   err.value = null;
-  try {
-    const sessionId = nextSessionId();
-    const now = new Date().toISOString();
-    const ttl = renderSessionMeta({
-      sessionId,
-      startedAt: now,
-      attributedTo: 'Toph',
-    });
+  const base = currentSessionCount();
+  const now = new Date().toISOString();
+  // Pod may already have sessions the local store doesn't know about (stale
+  // cache, prior failed loads). On 412 keep bumping N until we land a fresh
+  // slot. Cap at 50 to avoid runaway in pathological states.
+  for (let bump = 1; bump <= 50; bump++) {
+    const sessionId = `Session_${String(base + bump).padStart(3, '0')}`;
     const path = `/aleph/sessions/${sessionId}/meta.ttl`;
-    await getPod().putResource(path, ttl, { ifNoneMatch: true });
-    await reloadResource(path);
-  } catch (e) {
-    err.value = String(e);
-  } finally {
-    busy.value = false;
+    const ttl = renderSessionMeta({ sessionId, startedAt: now, attributedTo: 'Toph' });
+    try {
+      await getPod().putResource(path, ttl, { ifNoneMatch: true });
+      await reloadResource(path);
+      busy.value = false;
+      return;
+    } catch (e) {
+      if (!String(e).includes('412')) {
+        err.value = String(e);
+        busy.value = false;
+        return;
+      }
+      // 412 → slot taken on pod but missing locally; try next N
+    }
   }
+  err.value = 'no free session slot found';
+  busy.value = false;
 }
 </script>
 
