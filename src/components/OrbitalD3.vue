@@ -76,6 +76,10 @@ const ANIM_EASE = d3.easeCubicInOut;
 // Track skeleton size so we know when to fully rebuild the static layers.
 let skeletonKey = '';
 
+// Last-known node positions, used so inter-edges entering/exiting can be
+// anchored to the actual node position instead of jumping to/from origin.
+const lastNodePos = new Map<string, { x: number; y: number }>();
+
 function ensureSkeleton(svgNode: SVGSVGElement, layout: Layout): d3.Selection<SVGGElement, unknown, null, undefined> {
   const pal = props.palette;
   const svg = d3.select(svgNode);
@@ -137,6 +141,7 @@ function ensureSkeleton(svgNode: SVGSVGElement, layout: Layout): d3.Selection<SV
     root.append('path').attr('class', 'trail-path')
       .attr('stroke', pal.aleph).attr('stroke-width', 0.4).attr('stroke-dasharray', '2 5')
       .attr('fill', 'none').attr('opacity', 0.25);
+    root.append('g').attr('class', 'inter-edges');
     root.append('g').attr('class', 'spokes');
     root.append('g').attr('class', 'core');
     root.append('g').attr('class', 'reasoning');
@@ -279,6 +284,48 @@ function render(svgNode: SVGSVGElement, layout: Layout) {
   } else {
     reasoningG.selectAll('*').remove();
   }
+
+  // inter-node edges — muted by default, shows lateral relations between
+  // surrounding concepts (not just connections to focus). Endpoints stay
+  // anchored to nodes during transitions: enter starts at the node's previous
+  // position (matching where the node group currently is on screen), exit
+  // tweens to the node's new position (matching where the node group is
+  // heading). Update is automatic — d3 interpolates from current attr.
+  const currentNodePos = new Map<string, { x: number; y: number }>(
+    layout.nodes.map((n) => [n.node.id, { x: n.x, y: n.y }]),
+  );
+  const enterAnchor = (id: string): { x: number; y: number } =>
+    lastNodePos.get(id) ?? currentNodePos.get(id) ?? { x: layout.cx, y: layout.cy };
+  const exitAnchor = (id: string): { x: number; y: number } =>
+    currentNodePos.get(id) ?? lastNodePos.get(id) ?? { x: layout.cx, y: layout.cy };
+
+  const interG = root.select<SVGGElement>('g.inter-edges');
+  interG.selectAll<SVGLineElement, Layout['interEdges'][number]>('line')
+    .data(layout.interEdges, (d: any) => d.id)
+    .join(
+      enter => enter.append('line')
+        .attr('stroke', pal.mute).attr('stroke-width', 0.6)
+        .attr('opacity', 0)
+        .attr('x1', (d) => enterAnchor(d.s).x).attr('y1', (d) => enterAnchor(d.s).y)
+        .attr('x2', (d) => enterAnchor(d.o).x).attr('y2', (d) => enterAnchor(d.o).y)
+        .call(s => s.transition().duration(ANIM_MS).ease(ANIM_EASE)
+          .attr('x1', (d) => d.x1).attr('y1', (d) => d.y1)
+          .attr('x2', (d) => d.x2).attr('y2', (d) => d.y2)
+          .attr('opacity', 0.3)),
+      update => update.call(s => s.transition().duration(ANIM_MS).ease(ANIM_EASE)
+        .attr('x1', (d) => d.x1).attr('y1', (d) => d.y1)
+        .attr('x2', (d) => d.x2).attr('y2', (d) => d.y2)
+        .attr('opacity', 0.3)),
+      exit => exit.transition().duration(ANIM_MS).ease(ANIM_EASE)
+        .attr('x1', (d: any) => exitAnchor(d.s).x).attr('y1', (d: any) => exitAnchor(d.s).y)
+        .attr('x2', (d: any) => exitAnchor(d.o).x).attr('y2', (d: any) => exitAnchor(d.o).y)
+        .attr('opacity', 0).remove(),
+    );
+
+  // Cache current positions so the NEXT render's enter/exit can anchor to
+  // where nodes currently are on screen.
+  lastNodePos.clear();
+  currentNodePos.forEach((pos, id) => lastNodePos.set(id, pos));
 
   // spokes (animated)
   const spokesG = root.select<SVGGElement>('g.spokes');

@@ -63,6 +63,7 @@ export interface Layout {
   trail: { label: string; angle: number; x: number; y: number; opacity: number }[];
   trailPath: string;
   spokes: { id: string; x2: number; y2: number }[];
+  interEdges: { id: string; s: string; o: string; x1: number; y1: number; x2: number; y2: number }[];
   nodes: RenderedNode[];
   reasoningD: string;
   reasoningLabels: { from: string; to: string; label: string; cite?: string; mx: number; my: number }[];
@@ -103,9 +104,9 @@ export function buildLayout(graph: LayoutGraph, opts: LayoutOpts): Layout {
   ];
 
   const orbitLabelDefs = [
-    { r: orbits[0].r, label: '— specialisations —', angle: -Math.PI / 2 - 0.18 },
-    { r: orbits[1].r, label: '— direct relations —', angle: -Math.PI / 2 - 0.15 },
-    { r: orbits[2].r, label: '— two steps out —',   angle: -Math.PI / 2 - 0.12 },
+    { r: orbits[0].r, label: '— specialisations —', angle: -Math.PI / 2 },
+    { r: orbits[1].r, label: '— direct relations —', angle: -Math.PI / 2 },
+    { r: orbits[2].r, label: '— two steps out —',   angle: -Math.PI / 2 },
   ];
   const orbitLabels = orbitLabelDefs.map((d) => ({
     ...d,
@@ -335,6 +336,27 @@ export function buildLayout(graph: LayoutGraph, opts: LayoutOpts): Layout {
     y2: cy + Math.sin(p.angle) * p.radius,
   }));
 
+  // Edges between non-focus placed nodes — gives a sense of how surrounding
+  // concepts relate to each other, not just to the focus.
+  const placedById = new Map(placed.map((p) => [p.node.id, p]));
+  const interEdges = graph.edges
+    .filter((e) => e.s !== focusId && e.o !== focusId && e.s !== e.o)
+    .map((e) => {
+      const ps = placedById.get(e.s);
+      const po = placedById.get(e.o);
+      if (!ps || !po) return null;
+      return {
+        id: `${e.s}->${e.o}->${e.predicate}`,
+        s: e.s,
+        o: e.o,
+        x1: cx + Math.cos(ps.angle) * ps.radius,
+        y1: cy + Math.sin(ps.angle) * ps.radius,
+        x2: cx + Math.cos(po.angle) * po.radius,
+        y2: cy + Math.sin(po.angle) * po.radius,
+      };
+    })
+    .filter(Boolean) as Layout['interEdges'];
+
   const core = {
     haloR:     240 * scale,
     ring1R:     78 * scale,
@@ -354,6 +376,7 @@ export function buildLayout(graph: LayoutGraph, opts: LayoutOpts): Layout {
     stars, orbits, orbitLabels,
     trail, trailPath,
     spokes,
+    interEdges,
     nodes: renderedNodes,
     reasoningD, reasoningLabels,
     pathNoteAnchors,
