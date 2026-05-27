@@ -12,9 +12,9 @@ Aleph.wiki transforms scattered learning into a web of connected knowledge. When
 
 ### How it works
 
-Interactive learning sessions capture concepts as semantic triples in Turtle format, building a persistent knowledge graph that grows across sessions. Using standard ontologies (SKOS, FOAF, schema.org), aleph.wiki creates rich, queryable representations with cross-linked concepts, multilingual labels, and temporal relationships.
+Interactive learning sessions capture concepts as semantic triples, building a persistent knowledge graph that grows across sessions. Using standard ontologies (SKOS, FOAF, PROV) plus the project vocabulary at `vocab/aleph.ttl`, aleph.wiki creates rich, queryable representations with cross-linked concepts, multilingual labels, and temporal relationships.
 
-The system is designed for minimal interruption during learning. You provide brief inputs, and the assistant responds by writing structured RDF data to `index.ttl`, capturing both the concepts and the context of each learning interaction. Over time, patterns emerge - game theory appears in biology, economics, and politics; information theory connects thermodynamics, communication, and epistemology.
+The system is designed for minimal interruption during learning. You provide brief inputs, and the assistant emits structured RDF (Turtle / JSON-LD) into a Solid Pod, capturing both the concepts and the context of each learning interaction. Over time, patterns emerge - game theory appears in biology, economics, and politics; information theory connects thermodynamics, communication, and epistemology.
 
 ## Why aleph.wiki?
 
@@ -66,70 +66,52 @@ Pull up aleph.wiki. Search "Iran protests." The graph shows:
 
 **The moment:** You confidently join the conversation, making connections you'd completely forgotten existed in your notes. Connection-triggered recall in action.
 
-## Solid Protocol Integration
+## Architecture
 
-This project is designed to work with the **Solid Protocol** for decentralized, user-controlled data storage:
-
-- **Agent**: Claude Code writes RDF triples directly to your Solid Pod via authenticated PATCH operations
-- **Visualizer**: Web-based Solid app reads your knowledge graph and renders it with live updates
-- **Ownership**: You control your data - knowledge graphs live in your Pod, not our servers
-- **Collaboration**: Share concepts across Pods, create team workspaces, reference public ontologies
-
-See [`rdf-graph-viewer/SOLID_INTEGRATION.md`](./rdf-graph-viewer/SOLID_INTEGRATION.md) for detailed architecture and implementation plan.
-
-**Status:** Solid integration is planned but not yet implemented. Current version uses local filesystem storage.
-
-## Requirements
-
-- **[Claude Code](https://claude.com/claude-code)** - Required for the RDF learning agent
-
-The agent runs as a skill within Claude Code and writes semantic triples to your knowledge graph.
+- **Storage:** Solid Pod (Community Solid Server / JSS) under `/aleph/`. Conneg returns `text/turtle` for every RDF extension.
+- **Client:** Vue 3 + Vite single-page app (`src/`). In-browser SPARQL store via `oxigraph` (WASM). Graph rendering via `d3`.
+- **Agent:** Claude Code skill driven by the prompt framework in `prompts/` (seed → extend → view → chat-log → validate). Writes JSON-LD deltas back into the Pod.
+- **Vocabulary:** `vocab/aleph.ttl` (terms), `vocab/aleph-shapes.ttl` (SHACL), `vocab/aleph-context.jsonld` (JSON-LD context).
 
 ## Repository Structure
 
-- **`agent/`** - RDF learning agent (Claude Code skill)
-- **`mcp-server/`** - Model Context Protocol server for Solid Pod operations
-- **`rdf-graph-viewer/`** - Graph visualization frontend (early development)
-- **`aleph.wiki/`** - Future Solid app implementation
-- **`.claude/`** - Claude Code configuration for this repository
+- **`src/`** - Vue 3 frontend: components, `lib/rdf.ts` (oxigraph store), `lib/pod.ts` (Solid client), `queries/`.
+- **`vocab/`** - Project ontology, SHACL shapes, JSON-LD context.
+- **`prompts/`** - Agent prompt framework (`01-seed`, `02-extend`, `03-view`, `04-chat-log`, `05-validate`, `agent-loop`).
+- **`scripts/`** - One-off utilities, e.g. `seed-pod.ts` for bootstrapping a fresh Pod from `data/`.
+- **`data/`** - Reference TTL bundles (e.g. `demo-game-theory.ttl`) used as golden output for the prompt loop.
+- **`tests/`** - Vitest unit + integration tests.
+- **`.claude/`** - Claude Code configuration for this repo.
+
+## Requirements
+
+- [Bun](https://bun.sh) for dev / install / scripts.
+- A running Solid Pod (defaults to `http://localhost:3000`, override via `VITE_POD_BASE`). The bundled flow assumes [Community Solid Server](https://github.com/CommunitySolidServer/CommunitySolidServer) ("JSS") with `--conneg` enabled. Single-user password is seeded as `aleph.wiki`.
+- [Claude Code](https://claude.com/claude-code) - for the agent loop that produces graph deltas.
 
 ## Usage
 
-**⚠️ Early Development Warning**: This project is in active development. APIs, file formats, and core functionality may change without notice. Expect breaking changes.
+**⚠️ Early Development Warning:** APIs, file formats, and on-disk layout may change without notice.
 
 ### Setup
 
-1. Install [Claude Code](https://claude.com/claude-code)
-
-2. Copy the agent skill to your Claude Code instance:
-   ```bash
-   cp agent/rdf-learning.md ~/.config/claude-code/skills/rdf-learning.md
-   ```
-
-   Or use the project-local command (already configured):
-   ```bash
-   # Skill is already in .claude/commands/rdf-learning.md
-   ```
-
-3. Ensure `~/aleph-wiki/` directory exists for storing the knowledge graph:
-   ```bash
-   mkdir -p ~/aleph-wiki/ontologies
-   ```
-
-4. Invoke the skill in Claude Code:
-   ```
-   /rdf-learning
-   ```
+```bash
+bun install --frozen-lockfile     # reproducible install (bun.lock is source of truth)
+bun run scripts/seed-pod.ts       # bootstrap Pod with vocab + demo data
+bun run dev                       # Vite dev server
+```
 
 ### Learning Flow
 
-1. Start a learning session by invoking the `rdf-learning` skill
-2. Ask questions or provide topics you want to explore
-3. The assistant writes RDF triples to `~/aleph-wiki/index.ttl`
-4. Monitor the file or use RDF visualization tools to explore your growing knowledge graph
-5. Future sessions build on previous concepts, creating cross-session links
+1. Start a Claude Code session with the `agent-loop` prompt (`prompts/agent-loop.md`).
+2. Ask questions or provide topics you want to explore.
+3. The agent emits one JSON-LD delta per turn into `/aleph/sessions/{SessionId}/extendN.jsonld` on the Pod.
+4. The frontend re-reads the touched resource and re-renders the graph.
+5. Future sessions build on previous concepts, creating cross-session links.
 
-The graph structure allows filtering by session, time period, topic hierarchy, or semantic relationships - supporting both visual exploration and SPARQL queries for research.
+### Dependency pinning
+
+`package.json` uses caret ranges; reproducibility is guaranteed by `bun.lock`. Always install with `--frozen-lockfile` in CI.
 
 ## License
 
