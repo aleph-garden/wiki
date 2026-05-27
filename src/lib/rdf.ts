@@ -1,6 +1,7 @@
 import init, { Store, type Term } from 'oxigraph/web.js';
 import { ref } from 'vue';
 import { PodClient } from './pod';
+import { getPodBase } from './pod-config';
 
 export type PodStatus = 'connecting' | 'online' | 'offline' | 'reconnecting';
 export const podStatus = ref<PodStatus>('connecting');
@@ -25,7 +26,6 @@ export const SPARQL_PREFIX_BLOCK = Object.entries(PREFIXES)
   .map(([pfx, ns]) => `PREFIX ${pfx}: <${ns}>`)
   .join('\n');
 
-export const POD_BASE = (import.meta as any).env?.VITE_POD_BASE ?? 'http://localhost:3000';
 export const POD_ROOT = '/aleph/';
 
 let store: Store | null = null;
@@ -33,7 +33,7 @@ let ready: Promise<Store> | null = null;
 let pod: PodClient | null = null;
 
 export function getPod(): PodClient {
-  if (!pod) pod = new PodClient(POD_BASE);
+  if (!pod) pod = new PodClient(getPodBase());
   return pod;
 }
 

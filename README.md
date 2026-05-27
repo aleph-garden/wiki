@@ -113,6 +113,17 @@ bun run dev                       # Vite dev server
 
 `package.json` uses caret ranges; reproducibility is guaranteed by `bun.lock`. Always install with `--frozen-lockfile` in CI.
 
+## Self-Hosting Status & Limitations
+
+Anyone can open the hosted app (e.g. `https://aleph.wiki`) and point it at their **own** Solid Pod — local or remote. `localhost` is a [potentially-trustworthy origin](https://w3c.github.io/webappsec-secure-contexts/), so an HTTPS-hosted SPA may talk to `http://localhost:3000` without mixed-content errors and without local TLS. The remaining gaps:
+
+1. **Runtime config in place; no WebID yet.** The Pod URL is set via a setup screen on first load and persisted to `localStorage` under `aleph.podBase` (override default via `VITE_POD_BASE` at build time). Click the pod chip in the chrome to edit or forget. WebID-OIDC login that discovers `pim:storage` from the user's profile is still to do.
+2. **CORS must allow the app origin.** A user's Pod must respond with `Access-Control-Allow-Origin` matching the app origin (or `*` for public reads). JSS does not document its default CORS policy — verify empirically before assuming it works out of the box.
+3. **No-auth path requires permissive ACL.** The app issues unauthenticated `fetch` calls. Pointing it at a private pod will fail until either (a) the pod runs in single-user / open-WAC mode (e.g. `acl:agentClass foaf:Agent` on the relevant containers), or (b) a Solid-OIDC login flow is added.
+4. **WebSocket notifications.** `pod.ts` opens `ws://<pod>/.notifications` for `http://` pods and `wss://` for HTTPS pods. Browsers treat `ws://localhost` as secure-context, so local pods work from any origin.
+5. **Sync to a public Pod is out of scope of the app itself.** JSS supports a Git HTTP backend (`git clone`/`push` on pod containers) and [`remoteStorage`](https://datatracker.ietf.org/doc/html/draft-dejong-remotestorage-22). Neither is wired into the app; offline-first round-trips between a local Pod and a public one require manual `git push` or an external sync job.
+6. **JSS vs. CSS.** The "Architecture" section above references both Community Solid Server and JSS interchangeably; they are separate projects. The bundled flow targets JSS (`jss.live`) — CSS may work but is not tested.
+
 ## License
 
 AGPL-3.0 - see [LICENSE](./LICENSE) for details.
