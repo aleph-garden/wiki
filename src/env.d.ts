@@ -15,8 +15,3 @@ declare module '*.jsonld?raw' {
   const content: string;
   export default content;
 }
-
-declare module 'jsonld' {
-  const m: any;
-  export default m;
-}

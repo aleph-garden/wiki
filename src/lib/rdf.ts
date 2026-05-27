@@ -37,89 +37,30 @@ export function getPod(): PodClient {
   return pod;
 }
 
-// All RDF serializations oxigraph can parse. Mapping covers both file
-// extensions (for early-skip during container scan) and the
-// Content-Type the server returns at fetch time.
-const FORMAT_BY_EXT: Record<string, string> = {
-  '.ttl':    'text/turtle',
-  '.nt':     'application/n-triples',
-  '.nq':     'application/n-quads',
-  '.trig':   'application/trig',
-  '.jsonld': 'application/ld+json',
-  '.json':   'application/ld+json',
-  '.rdf':    'application/rdf+xml',
-  '.xml':    'application/rdf+xml',
-};
-const RDF_CONTENT_TYPES = new Set(Object.values(FORMAT_BY_EXT));
+// File extensions oxigraph can parse. JSS (--conneg) translates each to
+// turtle on GET, so we only need extensions to skip non-RDF container
+// entries during scan.
+const RDF_EXTS = ['.ttl', '.nt', '.nq', '.trig', '.jsonld', '.json', '.rdf', '.xml'];
 
-function formatForPath(path: string): string | null {
-  for (const [ext, mime] of Object.entries(FORMAT_BY_EXT)) {
-    if (path.endsWith(ext)) return mime;
-  }
-  return null;
+function isRdfPath(path: string): boolean {
+  return RDF_EXTS.some((ext) => path.endsWith(ext));
 }
 
 async function loadResource(s: Store, podClient: PodClient, path: string): Promise<void> {
   console.log(`[rdf] loadResource ${path}`);
-  let fetched;
+  let body: string | null;
   try {
-    fetched = await podClient.getResourceWithType(path);
+    body = await podClient.getResource(path);
   } catch (e) {
     console.warn(`[rdf] fetch failed ${path}:`, e);
     return;
   }
-  if (!fetched) { console.log(`[rdf] no body ${path}`); return; }
-  console.log(`[rdf] fetched ${path} content-type=${fetched.contentType} bytes=${fetched.body.length}`);
-  // Prefer the server's Content-Type — that's authoritative. Fall back to
-  // the extension if the server didn't send one we recognise.
-  const format = RDF_CONTENT_TYPES.has(fetched.contentType)
-    ? fetched.contentType
-    : formatForPath(path);
-  if (!format) {
-    console.warn(`[rdf] no parser for ${path} (content-type=${fetched.contentType})`);
-    return;
-  }
+  if (!body) { console.log(`[rdf] no body ${path}`); return; }
   const graphIri = podClient.baseUrl.replace(/\/$/, '') + path;
-
-  // JSON-LD with an external @context URL: oxigraph won't resolve it on its
-  // own in the browser, so we pre-expand via jsonld.js and feed the result
-  // as N-Quads (which oxigraph definitely understands).
-  if (format === 'application/ld+json') {
-    try {
-      const jsonld = (await import('jsonld')).default as any;
-      const doc = JSON.parse(fetched.body);
-      // Document loader that follows relative @context URLs via the pod.
-      const documentLoader = async (url: string) => {
-        const res = await fetch(url, { headers: { Accept: 'application/ld+json' } });
-        if (!res.ok) throw new Error(`context fetch ${url} → ${res.status}`);
-        const body = await res.json();
-        return { contextUrl: null, documentUrl: url, document: body };
-      };
-      const nquads = await jsonld.toRDF(doc, {
-        base: graphIri,
-        format: 'application/n-quads',
-        documentLoader,
-      });
-      const before = s.size;
-      s.load(nquads, { format: 'application/n-quads' });
-      const added = s.size - before;
-      console.log(`[rdf] ${path} → ${added} quads from jsonld (nquads bytes=${(nquads as string).length})`);
-      if (added === 0 && (nquads as string).length < 10) {
-        console.warn(`[rdf] jsonld expansion empty — context loader output:`, (nquads as string).slice(0, 200));
-      }
-    } catch (e) {
-      console.warn(`[rdf] jsonld expand failed ${path}:`, e);
-    }
-    return;
-  }
-
   try {
-    s.load(fetched.body, {
-      format,
-      base_iri: graphIri,
-    });
+    s.load(body, { format: 'text/turtle', base_iri: graphIri });
   } catch (e) {
-    console.warn(`[rdf] parse failed ${path} (format=${format}):`, e);
+    console.warn(`[rdf] parse failed ${path}:`, e);
   }
 }
 
@@ -131,7 +72,7 @@ async function loadContainer(s: Store, podClient: PodClient, path: string): Prom
     const entryPath = new URL(entry).pathname;
     if (entry.endsWith('/')) {
       await loadContainer(s, podClient, entryPath);
-    } else if (formatForPath(entryPath)) {
+    } else if (isRdfPath(entryPath)) {
       await loadResource(s, podClient, entryPath);
     }
   }));
