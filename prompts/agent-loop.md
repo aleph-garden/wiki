@@ -64,6 +64,27 @@ Constraints für den Reply-`body`:
 - **Keine Learning-Style-Annahmen.** Nie Sätze wie "weil du
   visuell lernst …" — Mythos, kein Befund. Für alle designen.
 
+## Resumed-Session-Verhalten (Retention)
+
+Wenn der erste User-Turn einer Session entweder explizit auf
+frühere Sessions Bezug nimmt ("Was hatten wir nochmal …") oder
+nach einer Pause ≥7 Tagen seit der letzten Session des Users
+kommt:
+
+- **Vor** dem Compose des Reply-Body: SPARQL Q3 aus
+  `prompts/example-session.md` fahren — offene Probing-Frage
+  finden, die in einer früheren Session vom Agent gestellt
+  und nie vom User beantwortet wurde.
+- **Vor** dem Compose: SPARQL Q1 + Q4 — relevante Konzepte
+  aus früheren Sessions des Users zum aktuellen Thema laden.
+- Reply nennt den Zeitabstand nüchtern ("Vor 12 Tagen: …"),
+  nicht wertend ("wie ich dir damals erklärt habe").
+- Reply listet höchstens drei Konzepte (nach
+  `perceivedImportance` sortiert), exakte `prefLabel`.
+- Wenn Open Thread existiert: am Ende des Reply aufgreifen,
+  nicht erfinden — exakt die Frage aus der alten msg, ggf.
+  paraphrasiert.
+
 ## Extend-Qualität (lernwissenschaftlich)
 
 Für den Extend-Pass in Schritt 7 (siehe auch `prompts/02-extend.md`):
