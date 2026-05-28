@@ -1,14 +1,14 @@
 import { Parser } from 'n3';
 import jsonld from 'jsonld';
-import SHACLValidator from 'rdf-validate-shacl';
-// The validator's default RDF/JS environment bundles a factory with clownface,
-// term-map, dataset, etc. We reuse it so shapes/data datasets are built with the
-// exact factory SHACLValidator expects (rdf-ext's factory lacks `clownface`).
-import rdf from 'rdf-validate-shacl/src/defaultEnv.js';
+import rdf from 'rdf-ext';
+import { Validator } from 'shacl-engine';
+// Opt-in SPARQL support: enables SHACL-SPARQL constraints (`sh:sparql`) such as
+// SessionShape's endedAtTime>startedAtTime check. shacl-engine bundles a
+// Comunica-lite engine, so no extra peer dependency is needed.
+import { validations } from 'shacl-engine/sparql.js';
 import { readFileSync } from 'node:fs';
 
 const VIOLATION = 'http://www.w3.org/ns/shacl#Violation';
-const SH_SPARQL = 'http://www.w3.org/ns/shacl#sparql';
 
 export interface ShaclResult {
   conforms: boolean;
@@ -36,6 +36,13 @@ export interface ValidateOptions {
   contextTurtle?: string;
 }
 
+/** A shacl-engine validation result (only the fields we read). */
+interface EngineResult {
+  severity?: { value: string };
+  message?: { value: string }[];
+  path?: { predicates?: { value: string }[] }[];
+}
+
 /** Parse a Turtle/N-Quads string into an rdf-ext dataset. */
 function datasetFromQuads(text: string, format: 'turtle' | 'n-quads') {
   const parser = new Parser({ format: format === 'turtle' ? 'text/turtle' : 'application/n-quads' });
@@ -44,8 +51,14 @@ function datasetFromQuads(text: string, format: 'turtle' | 'n-quads') {
   return ds;
 }
 
+/** Best-effort human-readable label for a violation lacking an sh:message. */
+function describe(r: EngineResult): string {
+  const predicate = r.path?.[0]?.predicates?.[0]?.value;
+  return predicate ? `violation on ${predicate}` : 'shacl violation';
+}
+
 export class ShaclValidator {
-  private constructor(private validator: SHACLValidator) {}
+  private constructor(private validator: Validator) {}
 
   static async load(shapesPath: string): Promise<ShaclValidator> {
     let shapesTtl: string;
@@ -55,15 +68,7 @@ export class ShaclValidator {
       throw new Error(`ShaclValidator: cannot load shapes from '${shapesPath}': ${err instanceof Error ? err.message : String(err)}`);
     }
     const shapes = datasetFromQuads(shapesTtl, 'turtle');
-    // rdf-validate-shacl cannot execute SHACL-SPARQL constraints (`sh:sparql`)
-    // and throws if it meets one on an active target. Strip those associations
-    // so the rest of a shape still validates (e.g. SessionShape keeps its
-    // cardinality checks but drops the endedAtTime>startedAtTime SPARQL clause).
-    // The clause stays in vocab/aleph-shapes.ttl for a SPARQL-capable engine.
-    for (const q of [...shapes]) {
-      if (q.predicate.value === SH_SPARQL) shapes.delete(q);
-    }
-    return new ShaclValidator(new SHACLValidator(shapes, { factory: rdf }));
+    return new ShaclValidator(new Validator(shapes, { factory: rdf, validations }));
   }
 
   /** Validate a JSON-LD document against the loaded shapes. See ValidateOptions. */
@@ -77,15 +82,13 @@ export class ShaclValidator {
       const parser = new Parser({ format: 'text/turtle' });
       for (const q of parser.parse(opts.contextTurtle)) data.add(q);
     }
-    const report = await this.validator.validate(data);
-    // rdf-validate-shacl sets report.conforms = (results.length === 0), counting
-    // sh:Warning/sh:Info results too. We only treat sh:Violation as a hard fail
-    // (advisory results never block a write), matching the SHACL spec's sh:conforms.
-    const violations = report.results.filter((r) => r.severity?.value === VIOLATION);
+    const report = await this.validator.validate({ dataset: data });
+    // We only treat sh:Violation as a hard fail; advisory sh:Warning/sh:Info
+    // results never block a write, matching the SHACL spec's sh:conforms.
+    const violations = (report.results as EngineResult[]).filter((r) => r.severity?.value === VIOLATION);
     const messages = violations.map((r) => {
-      const msg = r.message.map((m) => m.value).join('; ');
-      const path = r.path?.value ?? '';
-      return msg || `violation on ${path}`;
+      const msg = (r.message ?? []).map((m) => m.value).join('; ');
+      return msg || describe(r);
     });
     return { conforms: violations.length === 0, results: messages };
   }

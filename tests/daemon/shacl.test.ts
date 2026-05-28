@@ -60,4 +60,33 @@ describe('ShaclValidator', () => {
     });
     expect(r.conforms).toBe(true);
   });
+
+  // shacl-engine (unlike the previous rdf-validate-shacl) executes SHACL-SPARQL
+  // constraints. SessionShape uses one for endedAtTime > startedAtTime.
+  const session = (started: string, ended: string) => `@prefix : <https://aleph.wiki/g/> .
+@prefix aleph: <https://vocab.aleph.wiki/> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+:s1 a aleph:AlephSession ;
+    prov:startedAtTime "${started}"^^xsd:dateTime ;
+    prov:endedAtTime   "${ended}"^^xsd:dateTime ;
+    prov:wasAssociatedWith :A .
+:A a prov:Agent .`;
+
+  it('runs the sh:sparql constraint: endedAtTime before startedAtTime fails', async () => {
+    const r = await v.validateJsonLd(
+      { '@context': INLINE_CONTEXT, '@graph': [] },
+      { contextTurtle: session('2026-04-12T14:00:00Z', '2026-04-12T10:00:00Z') },
+    );
+    expect(r.conforms).toBe(false);
+    expect(r.results.join(' ')).toMatch(/endedAtTime must be after startedAtTime/);
+  });
+
+  it('passes a temporally valid session', async () => {
+    const r = await v.validateJsonLd(
+      { '@context': INLINE_CONTEXT, '@graph': [] },
+      { contextTurtle: session('2026-04-12T10:00:00Z', '2026-04-12T14:00:00Z') },
+    );
+    expect(r.conforms).toBe(true);
+  });
 });

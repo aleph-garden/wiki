@@ -50,10 +50,12 @@ by default until the vocab settles):
    wasAssociatedWith → prov:Agent) for the write to conform. Concepts must carry
    `wasGeneratedBy` + `generatedAtTime` (now in `prompts/agent-event.md`).
 
-Engine caveat: `rdf-validate-shacl@0.6.5` cannot execute SHACL-SPARQL
-(`sh:sparql`) constraints and throws on one. `ShaclValidator.load` strips
-`sh:sparql` clauses from the shapes (SessionShape's endedAtTime>startedAtTime is
-dropped); the clause stays in `vocab/aleph-shapes.ttl` for a SPARQL-capable engine.
+SHACL engine: `shacl-engine@1.1.0` (rdf-ext ecosystem) with SPARQL support
+enabled via `shacl-engine/sparql.js` (`validations`). It executes SHACL-SPARQL
+(`sh:sparql`) constraints, so SessionShape's endedAtTime>startedAtTime check now
+runs (regression-tested in `tests/daemon/shacl.test.ts`). Replaced
+`rdf-validate-shacl`, which could not run `sh:sparql` and threw on one. The
+engine bundles a Comunica-lite, so no extra peer dep.
 
 ## Next
 
@@ -69,7 +71,7 @@ dropped); the clause stays in `vocab/aleph-shapes.ttl` for a SPARQL-capable engi
 - **Daemon tests:** every file under `tests/daemon/` MUST start with `// @vitest-environment node` (repo default is happy-dom, which lacks Node globals like `process.env`).
 - **Run tests:** `bun run vitest run tests/daemon/` (or a single file path). Runtime is Bun 1.3.3.
 - **Push:** needs the sandbox disabled (SSH to github).
-- **SHACL stack quirk (T3):** `shacl.ts` imports `rdf-validate-shacl/src/defaultEnv.js` as the RDF/JS factory (rdf-ext lacks `clownface`). `conforms` filters to `sh:Violation` severity only — advisory `sh:Warning`/`sh:Info` never block a write.
+- **SHACL stack (T3):** `shacl.ts` uses `shacl-engine` with `rdf-ext` as the factory and `validations` from `shacl-engine/sparql.js` for SPARQL constraints. `conforms` filters to `sh:Violation` severity only — advisory `sh:Warning`/`sh:Info` never block a write. shacl-engine result objects expose `.severity.value`, `.message[].value`, and a structured `.path` (predicate at `.path[0].predicates[0].value`).
 
 ## Auth premise — verified empirically (do not re-litigate)
 
