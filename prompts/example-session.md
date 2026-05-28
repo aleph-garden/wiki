@@ -1,320 +1,474 @@
 ---
 id: aleph.example-session
 purpose: |
-  Konkrete Beispiel-Session, die zeigt wie die Constraints aus
-  `learning.md` + `agent-loop.md` in einem echten Verlauf wirken.
-  Pro Turn: User-Input, Agent-Reply (mit annotierter Begründung),
-  optional Extend-Delta. Anti-Patterns am Ende.
-audience: prompt authors, reviewers debugging agent output
+  Konkrete Beispiel-Session — diesmal mit Fokus auf *Retention*:
+  wie aus einem Gespräch ein durchsuchbares Gedächtnis wird, wie
+  man sich Wochen später wieder einklinkt, und welche konkreten
+  Queries das Wiederfinden tragen. Stützt sich auf `learning.md`
+  (Ausubel-Anchor, Generation Effect, Spacing) und `agent-loop.md`
+  (Reply- + Extend-Constraints).
+audience: prompt authors, UI implementers, reviewers
 ---
 
-# Beispiel-Session: Sauerteig-Fermentation
+# Beispiel-Session: Gödels Unvollständigkeitssätze + Retention
 
-Session-ID `g:Session_117`. Themenseed liegt bereits im Pod —
-folgende Konzepte existieren vor Turn 1:
+Zwei Sessions, knapp zwei Wochen auseinander. Thema: Gödel.
+Der Punkt: die *zweite* Session zeigt, wie der Pod der ersten
+Session als externes Gedächtnis dient — und welche Queries
+das tragen.
+
+## Ausgangslage
+
+Im Pod existieren aus früheren, unverbundenen Sessions:
 
 ```
-g:Sourdough        prefLabel "Sourdough"          broader g:Bread
-g:Fermentation     prefLabel "Fermentation"
-g:LacticAcidBact   prefLabel "Lactic Acid Bacteria"
-g:WildYeast        prefLabel "Wild Yeast"
-g:Gluten           prefLabel "Gluten"
-g:Hydration        prefLabel "Hydration Ratio"
-
-g:Sourdough  related   g:Fermentation
-g:Sourdough  related   g:LacticAcidBact
-g:Sourdough  related   g:WildYeast
+g:Mathematics   prefLabel "Mathematics"
+g:Logic         prefLabel "Logic"        broader g:Mathematics
+g:FormalSystem  prefLabel "Formal System" broader g:Logic
+g:Hilbert       a foaf:Person, prefLabel "David Hilbert"
 ```
 
-Sechs Knoten, drei Kanten. Knapp genug, dass jeder neue Knoten
-sichtbar wirkt.
+Vier Knoten, drei Kanten. User hat noch nie über Gödel
+gesprochen.
 
 ---
 
-## Turn 1 — User exploriert
+## Session 1 — 2026-05-28, Erstbegegnung
 
-**User msg1:** "Was passiert eigentlich beim Autolyse-Schritt?"
+### Turn 1
 
-User-Turn ist eine *Frage* → Generation-Effect-Klausel greift
-nicht (Reply soll antworten, nicht zurückfragen).
+**User msg1:** "Ich interessiere mich für Gödels
+Unvollständigkeitssätze, hab keine Ahnung wo ich anfangen soll."
 
-Bestehender Anschluss: `g:Hydration` (Wasser+Mehl mischen ist
-Autolyse-Voraussetzung), `g:Gluten` (das, was sich dabei bildet).
+Explizite Frage nach Einstieg → keine Gegenfrage erzwingen,
+direkt antworten. Anchor: `Formal System` existiert bereits.
 
 **Agent msg2:**
 
-```json
-{
-  "@id": "g:Session_117_msg2",
-  "@type": "ChatMessage",
-  "position": 2,
-  "speaker": "agent",
-  "body": "Mehl und Wasser ruhen ohne Salz und ohne Starter. Enzyme zerlegen Stärke, Gluten-Stränge ordnen sich von selbst. Spart spätere Knetzeit.",
-  "wasGeneratedBy": "g:Session_117",
-  "generatedAtTime": "2026-05-28T10:14:02Z"
-}
+```
+body: "Gödel zeigt 1931: jedes formal system, das Arithmetik
+beherrscht, hat wahre Aussagen, die es nicht beweisen kann.
+Schlägt damit Hilberts Programm im Kern. Soll ich mit der
+Beweisidee anfangen oder mit der Tragweite?"
 ```
 
-**Annotation:**
+- *Anchor (Ausubel):* `Formal System` exakt wie `prefLabel`,
+  `Hilbert` auch — verbindet Neues an Vorhandenes.
+- *Signaling:* beide Token matchen Graph-Labels.
+- *Segmenting:* 2 Sätze Substanz + 1 Wahlfrage zum Pacing
+  (Mayer-Segmenting: User pacet selbst).
+- *Konkretheit (Paivio):* "wahre Aussagen, die es nicht
+  beweisen kann" statt "Resultat über Beweisbarkeit".
 
-- *Anchor (Ausubel):* nennt `Gluten` — existierendes Konzept,
-  knüpft Neues (Autolyse-Mechanismus) an Vorwissen.
-- *Signaling:* "Gluten" exakt wie `prefLabel`. UI kann verlinken.
-- *Segmenting:* 3 Sätze, ein Mechanismus.
-- *Coherence:* keine Floskel ("gute Frage!"), kein Meta.
-- *Konkretheit:* "Enzyme zerlegen Stärke" statt "biochemische
-  Vorgänge finden statt".
-
-**Extend-Delta extend2.jsonld:**
+**Extend extend2.jsonld** (neu nur was direkt referenziert ist):
 
 ```json
 {
   "@graph": [
-    { "@id": "", "@type": "Edit", "editKind": "extend",
-      "wasGeneratedBy": "g:Session_117",
-      "generatedAtTime": "2026-05-28T10:14:02Z" },
+    { "@id": "g:GoedelIncompleteness", "@type": "Concept",
+      "prefLabel": { "en": "Gödel's Incompleteness Theorems" },
+      "broader":   "g:Logic",
+      "related":   "g:FormalSystem",
+      "perceivedImportance": 0.8,
+      "wasGeneratedBy":  "g:Session_117",
+      "generatedAtTime": "2026-05-28T10:02:11Z" },
 
-    { "@id": "g:Autolyse", "@type": "Concept",
-      "prefLabel": { "en": "Autolyse" },
-      "broader": "g:Sourdough",
-      "related": "g:Gluten",
-      "perceivedImportance": 0.55,
-      "wasGeneratedBy": "g:Session_117",
-      "generatedAtTime": "2026-05-28T10:14:02Z" }
+    { "@id": "g:Goedel", "@type": "foaf:Person",
+      "prefLabel": { "en": "Kurt Gödel" },
+      "wasGeneratedBy":  "g:Session_117",
+      "generatedAtTime": "2026-05-28T10:02:11Z" },
+
+    { "@id": "g:GoedelIncompleteness",
+      "derivedFrom": "g:Goedel" }
   ]
 }
 ```
 
-- *Anschlusszwang (Novak):* zwei Kanten zu bestehenden Knoten
-  (`broader → Sourdough`, `related → Gluten`). Kein Isolat.
-- *Konkret:* `Autolyse` statt `PreFermentationStep`.
-- *Quality > Quantity:* genau ein neuer Knoten, obwohl Reply
-  auch "Enzyme" und "Stärke" erwähnt — die brauchen wir erst,
-  wenn User explizit darauf zeigt.
+Zwei neue Entities, beide angedockt. Person + zugeordnete
+Erkenntnis. `Hilbert` *nicht* neu — schon da, reicht.
 
----
+### Turn 2
 
-## Turn 2 — User stellt deklarativ fest
+**User msg3:** "Tragweite. Ich dachte immer Mathematik wäre
+vollständig."
 
-**User msg3:** "Ich nehme immer 75% Hydration."
-
-Kein Fragezeichen, deklarativ → Generation-Effect-Klausel
-*greift*. Reply darf mit einer präzisen Rückfrage enden, die
-ein Nachbarkonzept aktiviert.
+Deklarativ → Generation-Effect erlaubt am Ende.
 
 **Agent msg4:**
 
+```
+body: "Genau das Hilbert-Programm war: alles entscheidbar
+machen. Gödels erster Satz killt Vollständigkeit, der zweite
+killt den Beweis der eigenen Consistency. Was wäre die
+Konsequenz, wenn ein System seine eigene Widerspruchsfreiheit
+beweisen könnte?"
+```
+
+- *Anchor:* `Hilbert` (existing person). Bezug auf Vorturn
+  über `der erste/zweite Satz`.
+- Zwei neue Konzepte werden *eingeführt* aber im Reply nur
+  beschreibend genannt — Formalisierung geschieht im Extend.
+- *Generation Effect:* Frage zwingt User zum Nachdenken über
+  Selbstbezug — Vorbereitung auf Turn 3.
+
+**Extend extend4.jsonld:**
+
 ```json
 {
-  "@id": "g:Session_117_msg4",
-  "speaker": "agent",
-  "body": "75% liegt im klassischen Bauernbrot-Bereich. Bei dieser Hydration Ratio formt sich der Teig noch in der Hand. Bekommst du eher offene oder geschlossene Krume?",
-  "...": "..."
+  "@graph": [
+    { "@id": "g:FirstIncompleteness", "@type": "Concept",
+      "prefLabel": { "en": "First Incompleteness Theorem" },
+      "broader":   "g:GoedelIncompleteness",
+      "perceivedImportance": 0.75,
+      "wasGeneratedBy":  "g:Session_117",
+      "generatedAtTime": "2026-05-28T10:05:48Z" },
+
+    { "@id": "g:SecondIncompleteness", "@type": "Concept",
+      "prefLabel": { "en": "Second Incompleteness Theorem" },
+      "broader":   "g:GoedelIncompleteness",
+      "perceivedImportance": 0.7,
+      "wasGeneratedBy":  "g:Session_117",
+      "generatedAtTime": "2026-05-28T10:05:48Z" },
+
+    { "@id": "g:HilbertProgram", "@type": "Concept",
+      "prefLabel": { "en": "Hilbert's Program" },
+      "derivedFrom": "g:Hilbert",
+      "related":     "g:GoedelIncompleteness",
+      "perceivedImportance": 0.65,
+      "wasGeneratedBy":  "g:Session_117",
+      "generatedAtTime": "2026-05-28T10:05:48Z" }
+  ]
 }
 ```
 
-**Annotation:**
+Drei neue Konzepte, alle mit ≥1 Kante zu Bestehendem. Unter
+`max_new: 5`. Hilbert-Programm verbindet die alte
+Hilbert-Person mit dem neuen Gödel-Cluster — *triangulation*,
+nicht nur lineare Verlängerung.
 
-- *Anchor:* `Hydration Ratio` exakt (Signaling).
-- *Generation Effect:* eine konkrete Rückfrage, aktiviert das
-  noch-nicht-existierende Konzept "Krumenstruktur" — falls
-  User darauf eingeht, Extend-Pass kann es sauber anlegen.
-- *Segmenting:* 2 kurze Sätze + 1 Frage.
-- *Keine Style-Annahme:* keine Phrase wie "weil du visuell
-  denkst, stell dir vor …".
+### Turn 3
 
-**Extend:** nichts. Kein neuer Knoten implied — User hat nur
-einen Parameter genannt, der bereits existierendem Konzept
-zugeordnet ist. Eine *Edge-only*-Erweiterung wäre möglich
-(z.B. `g:Hydration aleph:typicalValue "0.75"`), aber das
-gehört in den nächsten Turn, wenn User es bestätigt.
+**User msg5:** "Wie zeigt man so was überhaupt? Selbstbezug
+klingt komisch."
 
-→ "Wenn der Turn impliziert keine neuen Entities/Edges:
-Schritt skippen, keine leere Datei" (agent-loop §7) greift.
-
----
-
-## Turn 3 — User antwortet
-
-**User msg5:** "Eher geschlossen, ärgert mich."
-
-Bestätigt das Nachbarkonzept, drückt Bewertung aus.
+Frage → antworten, optional Probing am Ende.
 
 **Agent msg6:**
 
-```json
-{
-  "speaker": "agent",
-  "body": "Geschlossene Krume bei 75% deutet auf zu kurze Stockgare oder zu kalten Starter. Welche Temperatur hat dein Levain beim Einarbeiten?",
-  "...": "..."
-}
+```
+body: "Gödel kodiert syntax als Zahlen — jedes Symbol, jede
+Formel, jeder Beweis bekommt eine Nummer. Dann baut er eine
+Formel, die *über sich selbst* sagt: 'ich bin nicht beweisbar'.
+Wenn das System die Formel beweisen würde, wäre sie wahr — also
+unbeweisbar. Widerspruch. Soll ich beim Diagonalargument
+weitermachen?"
 ```
 
-**Annotation:**
-
-- Wieder deklarativer User-Turn → eine probing question erlaubt.
-- *Anchor:* "Levain" — noch nicht im Graph, *aber* der Reply
-  nennt es als bekannten Begriff. Vorsicht: Signaling-Constraint
-  verlangt eigentlich, dass Konzept-Token = existierendes
-  `prefLabel`. Hier ist "Levain" ein Term, der gleich ins Graph
-  wandern wird (siehe Extend) — akzeptabel, weil er im selben
-  Turn etabliert wird. Anti-Pattern wäre, wenn Levain nie
-  formalisiert würde.
+- *Anchor:* knüpft an "Selbstbezug" aus User-Turn.
+- *Konkretheit:* "jedes Symbol bekommt eine Nummer" statt
+  "arithmetische Kodierung der Syntax".
+- *Generation Effect:* Wahl-Frage am Ende. User closet hier
+  die App, antwortet nicht mehr. → wird zur Open Thread.
 
 **Extend extend6.jsonld:**
 
 ```json
 {
   "@graph": [
-    { "@id": "", "@type": "Edit", "editKind": "extend",
-      "wasGeneratedBy": "g:Session_117",
-      "generatedAtTime": "2026-05-28T10:18:40Z" },
+    { "@id": "g:GoedelNumbering", "@type": "Concept",
+      "prefLabel": { "en": "Gödel Numbering" },
+      "broader":   "g:FirstIncompleteness",
+      "perceivedImportance": 0.6,
+      "wasGeneratedBy":  "g:Session_117",
+      "generatedAtTime": "2026-05-28T10:09:33Z" },
 
-    { "@id": "g:Levain", "@type": "Concept",
-      "prefLabel": { "en": "Levain" },
-      "altLabel":  { "en": "Starter" },
-      "broader": "g:Sourdough",
-      "related": "g:WildYeast",
-      "perceivedImportance": 0.7,
-      "wasGeneratedBy": "g:Session_117",
-      "generatedAtTime": "2026-05-28T10:18:40Z" },
-
-    { "@id": "g:CrumbStructure", "@type": "Concept",
-      "prefLabel": { "en": "Crumb Structure" },
-      "broader": "g:Sourdough",
-      "related": "g:Hydration",
-      "perceivedImportance": 0.5,
-      "wasGeneratedBy": "g:Session_117",
-      "generatedAtTime": "2026-05-28T10:18:40Z" },
-
-    { "@id": "g:Sourdough", "related": "g:Levain" }
+    { "@id": "g:DiagonalLemma", "@type": "Concept",
+      "prefLabel": { "en": "Diagonal Lemma" },
+      "requires":  "g:GoedelNumbering",
+      "related":   "g:FirstIncompleteness",
+      "perceivedImportance": 0.55,
+      "wasGeneratedBy":  "g:Session_117",
+      "generatedAtTime": "2026-05-28T10:09:33Z" }
   ]
 }
 ```
 
-- Zwei neue Konzepte (`Levain`, `CrumbStructure`), beide mit
-  je zwei Kanten zu bestehenden Knoten. Unter `max_new: 5`.
-- Reinforce-Edge `g:Sourdough related g:Levain` ergänzt
-  semantische Triangulation.
-- `Levain` bekommt `altLabel "Starter"` — User hatte beide
-  Begriffe latent benutzt, Signaling-Constraint für künftige
-  Turns gestützt.
+`requires`-Kante (siehe `schema.md`) drückt explizit aus:
+DiagonalLemma setzt GoedelNumbering voraus. Für späteres
+View-Mode-Rendering wertvoll — Reihenfolge wird erzwingbar.
 
 ---
 
-## Turn 4 — User vertieft
+## Was nach Session 1 im Pod liegt
 
-**User msg7:** "Stockgare bei 26 Grad, drei Stunden."
+```
++ g:GoedelIncompleteness   broader Logic, related FormalSystem, derivedFrom Goedel
++ g:Goedel                 (Person)
++ g:FirstIncompleteness    broader GoedelIncompleteness
++ g:SecondIncompleteness   broader GoedelIncompleteness
++ g:HilbertProgram         derivedFrom Hilbert, related GoedelIncompleteness
++ g:GoedelNumbering        broader FirstIncompleteness
++ g:DiagonalLemma          requires GoedelNumbering, related FirstIncompleteness
++ 6 ChatMessages            position 1..6 in Session_117
++ 1 offene Probing-Frage    msg6 endet mit "?", kein msg7
+```
 
-Deklarativ, präzise.
+Sieben neue Konzepte, jedes mit Anschluss. Drei
+Chat-Replies, alle ≤4 Sätze. *Eine* offene Frage. Das ist
+das Retentions-Substrat.
 
-**Agent msg8:**
+---
 
-```json
-{
-  "speaker": "agent",
-  "body": "26 Grad ist warm für Lactic Acid Bacteria — die treiben dann Säure schneller als Wild Yeast Gas. Schon mal kühler probiert, etwa 22?",
-  "...": "..."
+## Retentions-Mechanik — was das Setup tatsächlich liefert
+
+`learning.md` listet die Prinzipien. Hier ist, wie sie sich
+im Pod manifestieren:
+
+1. **Concept-Graph als Ausubel-Anchor.** Beim nächsten Login
+   sind die Knoten da. Erneutes Sehen reaktiviert — Spacing.
+2. **ChatMessages sind first-class Entities.** Was du gesagt
+   hast und was der Agent geantwortet hat ist queryable per
+   SPARQL, nicht in einer Blob-History versteckt.
+3. **Probing Questions als Retrieval Cues.** Eine
+   `ChatMessage` mit `speaker "agent"`, die mit `?` endet
+   und keine folgende `user`-Message hat, ist eine
+   wartende Generation-Effect-Aufforderung. UI kann sie
+   beim Wiedereintritt herausheben.
+4. **`requires`-Kanten als Lernreihenfolge.** View-Mode
+   kann Pfade so rendern, dass Voraussetzungen vorher
+   kommen — natürlicher Recall-Pfad.
+5. **`derivedFrom` als Personen-Anker.** "Wer war Gödel"
+   öffnet einen Backlink auf alle Konzepte, die er begründet.
+
+---
+
+## Konkrete Recall-Queries
+
+Was du tatsächlich gegen den Pod fahren kannst, um *wieder
+reinzukommen*. SPARQL-Skizzen — gegen Oxigraph executable.
+
+### Q1 — "Welche Konzepte habe ich überhaupt mal berührt?"
+
+```sparql
+PREFIX aleph: <https://vocab.aleph.wiki/>
+PREFIX prov:  <http://www.w3.org/ns/prov#>
+PREFIX skos:  <http://www.w3.org/2004/02/skos/core#>
+
+SELECT ?c ?label ?session ?when WHERE {
+  ?c a aleph:Concept ;
+     skos:prefLabel  ?label ;
+     prov:wasGeneratedBy  ?session ;
+     prov:generatedAtTime ?when .
+} ORDER BY DESC(?when)
+```
+
+Library-Rail kann das gruppieren — pro Session, sortiert
+nach Zeit. Visuelle Anker für Wiedererinnerung.
+
+### Q2 — "Suche nach Label-Substring"
+
+```sparql
+SELECT ?c ?label WHERE {
+  ?c a aleph:Concept ;
+     skos:prefLabel ?label .
+  FILTER(CONTAINS(LCASE(STR(?label)), "gödel"))
 }
 ```
 
-**Annotation:**
+`altLabel` mitnehmen wenn vorhanden — User schreibt evtl.
+"Goedel" oder "incompleteness".
 
-- *Dual-Coding-Paar:* Reply nennt zwei existierende Knoten
-  (`Lactic Acid Bacteria`, `Wild Yeast`). View-Mode kann
-  daraus später einen Pfad rendern: `Sourdough → LacticAcidBact`
-  und `Sourdough → WildYeast` mit `edgeNote` "treibt Säure" /
-  "treibt Gas".
-- *Signaling:* beide Labels exakt aus dem Graph.
-- *Generation:* eine konkrete Rückfrage, aktiviert
-  Temperatur-Dimension als potenzielles neues Konzept.
+### Q3 — "Offene Threads — wo hat der Agent zuletzt was gefragt?"
 
-**Extend:** noch nicht. Der Temperatur-Faktor ist erst dann
-ein Konzept wert, wenn User-Antwort ihn als wiederkehrende
-Dimension etabliert. Vorzeitig anlegen = Graph-Pollution.
+```sparql
+PREFIX aleph: <https://vocab.aleph.wiki/>
+
+SELECT ?msg ?body ?session ?pos WHERE {
+  ?msg a aleph:ChatMessage ;
+       aleph:speaker  "agent" ;
+       aleph:body     ?body ;
+       aleph:position ?pos ;
+       prov:wasGeneratedBy ?session .
+  FILTER(STRENDS(STR(?body), "?"))
+  FILTER NOT EXISTS {
+    ?next a aleph:ChatMessage ;
+          aleph:speaker  "user" ;
+          aleph:position ?pNext ;
+          prov:wasGeneratedBy ?session .
+    FILTER(?pNext > ?pos)
+  }
+} ORDER BY DESC(?pos)
+```
+
+Liefert für Session_117 die msg6-Probing-Frage zurück.
+UI-Vorschlag: beim Reopen der Session als "Where you left
+off" prominent zeigen.
+
+### Q4 — "Welche Sessions haben Konzept X angefasst?"
+
+```sparql
+SELECT DISTINCT ?session ?startedAt WHERE {
+  ?c a aleph:Concept ;
+     skos:prefLabel "Gödel's Incompleteness Theorems"@en ;
+     prov:wasGeneratedBy ?session .
+  ?session prov:startedAtTime ?startedAt .
+} ORDER BY DESC(?startedAt)
+```
+
+Mehr-Session-Lernen wird so trivial sichtbar: Konzept X
+wurde in drei Sessions berührt, hier die Reihenfolge.
+
+### Q5 — "Was hab ich zuletzt zu X gesagt?"
+
+```sparql
+SELECT ?body ?when WHERE {
+  ?msg a aleph:ChatMessage ;
+       aleph:speaker "user" ;
+       aleph:body    ?body ;
+       prov:generatedAtTime ?when .
+  FILTER(CONTAINS(LCASE(STR(?body)), "gödel"))
+} ORDER BY DESC(?when) LIMIT 5
+```
+
+Auch der Reverse — *Agent*-Erklärungen zu X auffindbar.
+
+### Q6 — "Pfad zwischen zwei Konzepten" (für View-Mode)
+
+Property-Path-Query, beliebige Kantenrichtung:
+
+```sparql
+SELECT ?path WHERE {
+  g:GoedelIncompleteness
+    (skos:broader|^skos:broader|skos:related|aleph:requires|^aleph:requires)+
+    g:Mathematics .
+}
+```
+
+Findet die Kette `GoedelIncompleteness → Logic → Mathematics`.
+Genau das Substrat, das `03-view.md` als `aleph:path` ausgibt.
 
 ---
 
-## Anti-Patterns (was der Agent *nicht* tun darf)
+## Session 2 — 2026-06-09, zwölf Tage später
 
-### A. Learning-Style-Annahme
+Spacing-Intervall ~12 Tage. User öffnet App. Library-Rail
+zeigt `Session_117` ganz oben. *Vor* dem ersten User-Turn
+kann die UI proaktiv Q3 fahren und msg6-Probing-Frage
+darstellen — *Generation-Effect über Zeit*.
 
-```
-"Weil du visuell denkst, stell dir die Hefen als kleine Ballons vor."
-```
+User klickt stattdessen die Session, startet `Session_118`.
 
-Verstoß: Mythos (siehe `learning.md`, "Was *keine* Evidenz hat").
-Korrektur: Bildsprache ist okay, *wenn* sie für *alle* User
-angeboten wird — nicht als typ-spezifische Erklärung.
+### Turn 1
 
-### B. Isolierter neuer Knoten
+**User msg1:** "Was hatten wir nochmal mit Gödel?"
 
-```json
-{ "@id": "g:Maillard", "@type": "Concept",
-  "prefLabel": { "en": "Maillard Reaction" } }
-```
+Agent-Loop greift. Pre-Reply lookup: Q1 + Q4 mit
+Filter auf User. Liefert Concept-Liste aus Session_117.
+Außerdem msg6-Open-Thread (Q3).
 
-Verstoß: kein `broader`, kein `related` zu existierendem.
-Anschlusszwang verletzt. Knoten wäre isolierter Punkt.
-Korrektur: mindestens `related g:Sourdough` plus ggf.
-`related g:Crust` (sobald `Crust` existiert).
-
-### C. Überextension
-
-Reply erwähnt Autolyse, Maillard, Stockgare, Stückgare, Krume,
-Hydration, Säure, Gas — Agent versucht 5+ neue Konzepte in
-einem Turn anzulegen.
-
-Verstoß: Quality > Quantity. Korrektur: ein, maximal zwei
-neue Konzepte pro Turn, der Rest entweder reinforce-Edge
-oder warten bis User explizit darauf zeigt.
-
-### D. Synonym-Drift
-
-Graph hat `prefLabel "Lactic Acid Bacteria"`, Reply schreibt
-"Milchsäurebakterien" oder "LAB".
-
-Verstoß: Signaling. UI kann nicht matchen. Korrektur: erstes
-Vorkommen *exakt* wie `prefLabel`, dann optional `altLabel`
-ergänzen — aber im selben Reply nur eine Form.
-
-### E. Floskel-Reply
+**Agent msg2:**
 
 ```
-"Das ist eine sehr gute Frage! Beim Sauerteig …"
+body: "Vor 12 Tagen: First + Second Incompleteness Theorem,
+Hilbert Program, Gödel Numbering, Diagonal Lemma. Letzte
+offene Frage von mir war ob wir beim Diagonalargument
+weitermachen. Still relevant?"
 ```
 
-Verstoß: Coherence. Extraneous Load. Korrektur: ersten Satz
-direkt mit Substanz beginnen.
+- *Spacing:* explizit benannter Zeitabstand reaktiviert die
+  zeitliche Kontextualisierung — Episode-Memory hilft
+  Retrieval.
+- *Anchor:* fünf existierende Konzept-Labels exakt.
+- *Signaling:* Labels matchen Graph 1:1.
+- *Generation Effect:* greift den alten Cliffhanger auf.
+  Nicht erfinden — *aus dem Graph holen* via Q3.
 
-### F. Erzwungene Gegenfrage bei User-Frage
+**Extend:** nichts. Reiner Recall-Turn, keine neuen
+Entities impliziert.
 
-User: "Was ist Autolyse?" — Agent: "Bevor ich antworte: was
-weißt du schon über Glutenbildung?"
+### Turn 2
 
-Verstoß: Generation-Effect-Klausel gilt nur für *deklarative*
-Turns. Bei expliziter Frage: erst antworten. Optional am Ende
-eine Rückfrage, aber nicht die Antwort verweigern.
+**User msg3:** "Ja gerne, aber kurz nochmal — was war das
+Diagonalargument?"
+
+Frage → antworten.
+
+**Agent msg4:**
+
+```
+body: "Diagonal Lemma sagt: in einem System, das Gödel
+Numbering beherrscht, gibt es zu jeder Formel φ(x) eine
+Aussage ψ, die behauptet 'φ trifft auf mich zu'. Der
+Selbstbezug aus msg6 — formalisiert."
+```
+
+- *Anchor:* `Diagonal Lemma`, `Gödel Numbering` (beide
+  existing). Explizite Referenz auf `msg6` — Pod-interne
+  Verlinkung möglich, weil ChatMessages adressierbar sind.
+- *Dual Coding:* View-Mode auf `g:DiagonalLemma` kann jetzt
+  einen Pfad rendern `Diagonal Lemma → (requires) → Gödel
+  Numbering → (broader) → First Incompleteness`. Reply
+  (verbal) + Pfad (spatial) = Paivio-Paar.
+
+**Extend:** wieder nichts — Konzepte existieren schon, neue
+Kanten nicht impliziert.
 
 ---
 
-## Session-Endzustand
+## Anti-Patterns für Retention
 
-Nach den vier Turns:
+### A. Konzept-Drift bei Resurfacing
+
+Session 2, Agent schreibt "der Unvollständigkeitssatz".
+Konzept-Label im Graph ist "Gödel's Incompleteness Theorems".
+UI matched nicht, kein Link, Wiedererkennung gestört.
+
+→ Beim Lookup-Reply *exakt* die `prefLabel`-Strings nehmen,
+nicht paraphrasieren.
+
+### B. Vergessen aus dem Graph zu lesen
+
+Agent improvisiert in Session 2 eine Zusammenfassung statt
+Q1/Q3 zu fahren. Reply sagt vielleicht etwas Vernünftiges,
+aber referenziert nicht die *tatsächlich* berührten Konzepte
+— User hat keinen Anker zum Vorwissen.
+
+→ Recall-Turns *müssen* aus dem Graph kommen, nicht aus dem
+LLM-Kontext.
+
+### C. Open Threads ignorieren
+
+Agent stellt in Session 1 eine Probing-Frage, in Session 2
+greift er sie nicht auf. Generation Effect verpufft.
+
+→ Q3 vor erstem Reply einer wiederaufgenommenen Session
+fahren, Resultat in Reply einbauen.
+
+### D. Spacing als "rote Erinnerung" verkleiden
 
 ```
-+ g:Autolyse        (neu, →broader Sourdough, →related Gluten)
-+ g:Levain          (neu, →broader Sourdough, →related WildYeast)
-+ g:CrumbStructure  (neu, →broader Sourdough, →related Hydration)
-+ edge: g:Sourdough related g:Levain
+"Wie ich dir vor 12 Tagen erklärt habe, …"
 ```
 
-Drei neue Knoten, vier neue Kanten, vier Chat-Replies à ~3 Sätzen.
-Jeder neue Knoten hat ≥2 Anschlüsse. Reply-Bodies nennen
-durchgehend existierende Labels exakt. Zwei der vier
-Agent-Turns enden mit einer probing question (jeweils nach
-deklarativem User-Turn).
+Bevormundend, suggeriert User habe vergessen. Mayer-Coherence
+verletzt: emotionales Rauschen.
 
-Das ist die Form, die das Setup belohnen soll: dichter
-Anschluss, sparsame Erweiterung, Reply ohne Ballast,
-Retrieval-Triggerung wo passend.
+→ Stattdessen nüchtern den Zeitabstand nennen, ohne Wertung
+("Vor 12 Tagen: …").
+
+### E. Backlinks-Übersättigung
+
+Session 2 Reply listet alle 7 Konzepte aus Session 1 plus
+Backlinks. Segmenting verletzt.
+
+→ Top-3 nach `perceivedImportance` reicht. Rest auf Nachfrage.
+
+---
+
+## Was das Setup leistet, in einem Satz
+
+Ein Aleph-Pod ist nicht ein Chat-Log, sondern ein
+strukturiertes externes Gedächtnis: Konzepte, Kanten,
+Nachrichten und offene Fragen sind *adressierbar*, und der
+Agent-Loop ist verpflichtet, beim Resurfacen *aus dem
+Gedächtnis zu reden*, nicht daran vorbei.

@@ -69,8 +69,9 @@ synergistisch.
 **Aleph-Konsequenz:** Agent kann bei deklarativen User-Turns eine
 *probing question* einstreuen, die ein Nachbarkonzept aktiviert —
 zwingt User zum Retrieval. Cross-Session-Spacing (alte Konzepte
-nach N Tagen beiläufig wieder aufgreifen) ist Feature-Ziel, nicht
-Prompt-Sache.
+nach N Tagen beiläufig wieder aufgreifen) ist umgesetzt über
+SPARQL Q1/Q3/Q4 aus `prompts/example-session.md`, getriggert
+vom Resumed-Session-Block in `agent-loop.md`.
 
 ### 5. Knowledge-Graph-Visualisierung skaliert schlecht
 
