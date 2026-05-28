@@ -1,5 +1,8 @@
 // Inlined JSON-LD context — same terms as vocab/aleph-context.jsonld, embedded
 // so SHACL validation never has to dereference the relative ./context.jsonld.
+// TODO: no test currently guards INLINE_CONTEXT against drift from
+// vocab/aleph-context.jsonld — a term added there but not here would let
+// malformed triples validate silently. Add a sync check in a follow-up.
 export const INLINE_CONTEXT: Record<string, unknown> = {
   aleph: 'https://vocab.aleph.wiki/',
   prov: 'http://www.w3.org/ns/prov#',
