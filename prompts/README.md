@@ -36,6 +36,7 @@ question     ┌──────────────┐                ┌
 | `schema.md`      | —                                | vocab cheat sheet    | read-only reference loaded into every other prompt |
 | `learning.md`    | —                                | learning-science rationale | reference for `agent-loop.md` reply/extend constraints |
 | `example-session.md` | —                            | worked example session | reviewers debugging agent output vs. `learning.md` constraints |
+| `example-walkthrough.md` | —                        | full 10-turn Gödel sitzung with triples + viz | implementers: shows how schema carries the learning arc end-to-end |
 
 ## Conventions
 
