@@ -27,6 +27,10 @@ be persisted via `assert_triples` with the matching `kind` BEFORE you reference
 it in the reply. Do not emit free-hand triples without an assertion wrapper.
 If a claim is your own synthesis, use `kind: "imagined"`.
 
+Each `Concept` you assert MUST carry `wasGeneratedBy: "g:{{sessionId}}"` and a
+`generatedAtTime` (ISO-8601). Leave every `@id` you don't control empty — the
+daemon fills document identity in itself.
+
 ## Reply style
 
 - Read the session context first (`read_pod`).

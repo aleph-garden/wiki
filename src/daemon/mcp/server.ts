@@ -30,6 +30,21 @@ export function makeTools(deps: ToolDeps, ctx: RunContext) {
   /** Absolute IRI a doc will be stored at — the JSON-LD base for `@id: ""`. */
   const docUrl = (path: string) => pod.baseUrl.replace(/\/$/, '') + path;
 
+  /**
+   * Fetch the session's meta.ttl so the typed `aleph:AlephSession` node is
+   * present in the data graph — needed for the `wasGeneratedBy → sh:class
+   * aleph:AlephSession` constraints on concepts and edits to resolve. Returns
+   * undefined when there's no meta (e.g. tests); validation then proceeds
+   * without the session context.
+   */
+  async function sessionMeta(sessionId: string): Promise<string | undefined> {
+    try {
+      return (await pod.getResource(`/aleph/sessions/${sessionId}/meta.ttl`)) ?? undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
   async function read_pod(input: { path: string }) {
     try {
       const body = await pod.getResource(input.path);
@@ -48,7 +63,10 @@ export function makeTools(deps: ToolDeps, ctx: RunContext) {
     const built = buildReplyDoc({
       sessionId: input.sessionId, msgN: input.msgN, body: input.body, now: nowIso(),
     });
-    const report = await validator.validateJsonLd(built.validationDoc, docUrl(built.path));
+    const report = await validator.validateJsonLd(built.validationDoc, {
+      documentUrl: docUrl(built.path),
+      contextTurtle: await sessionMeta(input.sessionId),
+    });
     if (!report.conforms) {
       if (enforceShacl) return { error: 'shacl' as const, report: report.results };
       console.warn(`[mcp] SHACL advisory (not blocking) on ${built.path}: ${report.results.join('; ')}`);
@@ -79,7 +97,10 @@ export function makeTools(deps: ToolDeps, ctx: RunContext) {
       sessionId: input.sessionId, msgN: ctx.msgN, kind: input.kind,
       now: nowIso(), ts: fileTs(), jsonld: input.jsonld, provenance: input.provenance,
     });
-    const report = await validator.validateJsonLd(built.validationDoc, docUrl(built.path));
+    const report = await validator.validateJsonLd(built.validationDoc, {
+      documentUrl: docUrl(built.path),
+      contextTurtle: await sessionMeta(input.sessionId),
+    });
     if (!report.conforms) {
       if (enforceShacl) {
         ctx.shaclFailures.set(input.kind, (ctx.shaclFailures.get(input.kind) ?? 0) + 1);

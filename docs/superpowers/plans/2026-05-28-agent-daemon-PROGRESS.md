@@ -36,28 +36,32 @@ writes** by default. `Config.shaclEnforce` (env `SHACL_ENFORCE=true`) flips it t
 hard gating + the per-kind retry cap. Left off because the vocab is still
 changing; flip it on once shapes stabilize.
 
-Two known issues to resolve before enforcement is meaningful (the "fix gate
-properly" path, deferred):
-1. **Header constraints never run.** `buildAssertionDoc`/`buildReplyDoc` emit the
-   assertion/reply *header* with `@id: ""`; `shacl.ts` calls `jsonld.toRDF`
-   without a `base`, so those document-relative nodes are dropped before
-   validation. Only absolute (`g:…`) payload nodes are checked. Fix: pass a base
-   IRI in `validateJsonLd`.
-2. **`sh:class aleph:AlephSession` is unsatisfiable per-document.** `ConceptShape`
-   / `EditShape` require `prov:wasGeneratedBy → sh:class aleph:AlephSession`, but a
-   single write references the session by IRI without embedding the (typed,
-   SessionShape-constrained) session node. Relax these to `sh:nodeKind sh:IRI`
-   since the session lives in a separate pod resource.
+Both gate issues are now **resolved** — `SHACL_ENFORCE=true` is viable (still off
+by default until the vocab settles):
+1. **Header constraints now run.** `validateJsonLd(doc, { documentUrl })` passes
+   the doc's storage URL as the JSON-LD `base`, so the assertion/reply *header*
+   (`@id: ""`) resolves to a concrete IRI instead of being dropped. The agent
+   keeps `@id` empty; the daemon fills identity from the path it computes.
+2. **`sh:class aleph:AlephSession` resolves via session-graph merge.** Before
+   validating, the tools fetch `/aleph/sessions/<id>/meta.ttl` and pass it as
+   `validateJsonLd(..., { contextTurtle })`, merging the typed `AlephSession`
+   node into the data graph. The merged session is itself validated, so the
+   referenced session must satisfy SessionShape (startedAtTime +
+   wasAssociatedWith → prov:Agent) for the write to conform. Concepts must carry
+   `wasGeneratedBy` + `generatedAtTime` (now in `prompts/agent-event.md`).
 
-Code-level notes left in `src/daemon/shacl.ts` (the no-base drop) and the
-enforce-mode test in `tests/daemon/mcp-server.test.ts`.
+Engine caveat: `rdf-validate-shacl@0.6.5` cannot execute SHACL-SPARQL
+(`sh:sparql`) constraints and throws on one. `ShaclValidator.load` strips
+`sh:sparql` clauses from the shapes (SessionShape's endedAtTime>startedAtTime is
+dropped); the clause stays in `vocab/aleph-shapes.ttl` for a SPARQL-capable engine.
 
 ## Next
 
 - Run the deferred two-stage review on Task 7 (`subscriber.ts`).
 - Optional whole-implementation review, then `superpowers:finishing-a-development-branch`.
-- When the vocab stabilizes: address the two SHACL issues above and set
-  `SHACL_ENFORCE=true`.
+- Decide when to flip `SHACL_ENFORCE=true` (vocab stability). Note: live sessions
+  created via `src/lib/ttl.ts:renderSessionMeta` omit `prov:wasAssociatedWith`,
+  so they'd fail SessionShape under enforcement — fix that emitter first.
 
 ## Conventions that bit us — carry these forward
 
