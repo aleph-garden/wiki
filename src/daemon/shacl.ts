@@ -1,0 +1,50 @@
+import { Parser } from 'n3';
+import jsonld from 'jsonld';
+import SHACLValidator from 'rdf-validate-shacl';
+// The validator's default RDF/JS environment bundles a factory with clownface,
+// term-map, dataset, etc. We reuse it so shapes/data datasets are built with the
+// exact factory SHACLValidator expects (rdf-ext's factory lacks `clownface`).
+import rdf from 'rdf-validate-shacl/src/defaultEnv.js';
+import { readFileSync } from 'node:fs';
+
+export interface ShaclResult {
+  conforms: boolean;
+  /** Human-readable violation messages (empty when conforms). */
+  results: string[];
+}
+
+/** Parse a Turtle/N-Quads string into an rdf-ext dataset. */
+function datasetFromQuads(text: string, format: 'turtle' | 'n-quads') {
+  const parser = new Parser({ format: format === 'turtle' ? 'text/turtle' : 'application/n-quads' });
+  const ds = rdf.dataset();
+  for (const q of parser.parse(text)) ds.add(q);
+  return ds;
+}
+
+export class ShaclValidator {
+  private constructor(private validator: SHACLValidator) {}
+
+  static async load(shapesPath: string): Promise<ShaclValidator> {
+    const shapes = datasetFromQuads(readFileSync(shapesPath, 'utf-8'), 'turtle');
+    return new ShaclValidator(new SHACLValidator(shapes, { factory: rdf }));
+  }
+
+  async validateJsonLd(doc: object): Promise<ShaclResult> {
+    const nquads = (await jsonld.toRDF(doc as jsonld.JsonLdDocument, {
+      format: 'application/n-quads',
+    })) as string;
+    const data = datasetFromQuads(nquads, 'n-quads');
+    const report = await this.validator.validate(data);
+    // rdf-validate-shacl sets report.conforms = (results.length === 0), counting
+    // sh:Warning/sh:Info results too. We only treat sh:Violation as a hard fail
+    // (advisory results never block a write), matching the SHACL spec's sh:conforms.
+    const VIOLATION = 'http://www.w3.org/ns/shacl#Violation';
+    const violations = report.results.filter((r) => r.severity?.value === VIOLATION);
+    const messages = violations.map((r) => {
+      const msg = r.message.map((m) => m.value).join('; ');
+      const path = r.path?.value ?? '';
+      return msg || `violation on ${path}`;
+    });
+    return { conforms: violations.length === 0, results: messages };
+  }
+}
