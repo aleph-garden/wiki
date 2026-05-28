@@ -35,6 +35,7 @@ question     ┌──────────────┐                ┌
 | `04-chat-log.md` | session id + transcript          | `aleph:ChatMessage` block | Console panel |
 | `schema.md`      | —                                | vocab cheat sheet    | read-only reference loaded into every other prompt |
 | `learning.md`    | —                                | learning-science rationale | reference for `agent-loop.md` reply/extend constraints |
+| `example-session.md` | —                            | worked example session | reviewers debugging agent output vs. `learning.md` constraints |
 
 ## Conventions
 
