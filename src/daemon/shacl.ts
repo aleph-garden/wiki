@@ -7,6 +7,8 @@ import SHACLValidator from 'rdf-validate-shacl';
 import rdf from 'rdf-validate-shacl/src/defaultEnv.js';
 import { readFileSync } from 'node:fs';
 
+const VIOLATION = 'http://www.w3.org/ns/shacl#Violation';
+
 export interface ShaclResult {
   conforms: boolean;
   /** Human-readable violation messages (empty when conforms). */
@@ -25,12 +27,18 @@ export class ShaclValidator {
   private constructor(private validator: SHACLValidator) {}
 
   static async load(shapesPath: string): Promise<ShaclValidator> {
-    const shapes = datasetFromQuads(readFileSync(shapesPath, 'utf-8'), 'turtle');
+    let shapesTtl: string;
+    try {
+      shapesTtl = readFileSync(shapesPath, 'utf-8');
+    } catch (err) {
+      throw new Error(`ShaclValidator: cannot load shapes from '${shapesPath}': ${err instanceof Error ? err.message : String(err)}`);
+    }
+    const shapes = datasetFromQuads(shapesTtl, 'turtle');
     return new ShaclValidator(new SHACLValidator(shapes, { factory: rdf }));
   }
 
-  async validateJsonLd(doc: object): Promise<ShaclResult> {
-    const nquads = (await jsonld.toRDF(doc as jsonld.JsonLdDocument, {
+  async validateJsonLd(doc: jsonld.JsonLdDocument): Promise<ShaclResult> {
+    const nquads = (await jsonld.toRDF(doc, {
       format: 'application/n-quads',
     })) as string;
     const data = datasetFromQuads(nquads, 'n-quads');
@@ -38,7 +46,6 @@ export class ShaclValidator {
     // rdf-validate-shacl sets report.conforms = (results.length === 0), counting
     // sh:Warning/sh:Info results too. We only treat sh:Violation as a hard fail
     // (advisory results never block a write), matching the SHACL spec's sh:conforms.
-    const VIOLATION = 'http://www.w3.org/ns/shacl#Violation';
     const violations = report.results.filter((r) => r.severity?.value === VIOLATION);
     const messages = violations.map((r) => {
       const msg = r.message.map((m) => m.value).join('; ');
