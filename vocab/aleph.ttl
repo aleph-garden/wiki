@@ -56,6 +56,31 @@ aleph:requires      a owl:ObjectProperty ;
 aleph:exemplifies   a owl:ObjectProperty ;
     rdfs:comment "This event/case is a concrete instance of the target concept."@en .
 
+#################################################################
+# Assertion provenance (agent-daemon write path)
+#################################################################
+
+aleph:WebSearchAssertion a owl:Class ; rdfs:subClassOf prov:Activity ;
+    rdfs:label "Web Search Assertion"@en ;
+    rdfs:comment "Activity that produced triples grounded in a fetched web source."@en .
+
+aleph:SparqlAssertion a owl:Class ; rdfs:subClassOf prov:Activity ;
+    rdfs:label "SPARQL Assertion"@en ;
+    rdfs:comment "Activity that produced triples from a federated SPARQL query."@en .
+
+aleph:ImaginedAssertion a owl:Class ; rdfs:subClassOf prov:Activity ;
+    rdfs:label "Imagined Assertion"@en ;
+    rdfs:comment "Activity that produced triples from the model's own knowledge, no external source."@en .
+
+aleph:searchQuery a owl:DatatypeProperty ; rdfs:range xsd:string ;
+    rdfs:comment "The search string used by a WebSearchAssertion."@en .
+
+aleph:query a owl:DatatypeProperty ; rdfs:range xsd:string ;
+    rdfs:comment "The SPARQL query text used by a SparqlAssertion."@en .
+
+aleph:endpoints a owl:DatatypeProperty ; rdfs:range xsd:string ;
+    rdfs:comment "A SPARQL endpoint URL queried by a SparqlAssertion (repeatable)."@en .
+
 # Layout hints (cached from previous render; regenerated as graph grows)
 aleph:layoutX       a owl:DatatypeProperty ; rdfs:range xsd:decimal .
 aleph:layoutY       a owl:DatatypeProperty ; rdfs:range xsd:decimal .

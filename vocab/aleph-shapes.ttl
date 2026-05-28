@@ -150,3 +150,60 @@ aleph:EditShape a sh:NodeShape ;
         sh:minCount 1 ; sh:maxCount 1 ;
         sh:in ( "create" "amend" "retract" ) ;
         sh:severity sh:Violation ] .
+
+#################################################################
+# WebSearchAssertionShape — must cite a source URL
+#################################################################
+aleph:WebSearchAssertionShape a sh:NodeShape ;
+    sh:targetClass aleph:WebSearchAssertion ;
+    rdfs:label "Web Search Assertion Shape"@en ;
+
+    sh:property [
+        sh:path prov:wasGeneratedBy ;
+        sh:minCount 1 ;
+        sh:severity sh:Violation ] ;
+
+    sh:property [
+        sh:path aleph:derivedFrom ;
+        sh:minCount 1 ;
+        sh:nodeKind sh:IRI ;
+        sh:message "WebSearchAssertion requires aleph:derivedFrom (a source URI)" ;
+        sh:severity sh:Violation ] .
+
+#################################################################
+# SparqlAssertionShape — must record query + endpoint(s)
+#################################################################
+aleph:SparqlAssertionShape a sh:NodeShape ;
+    sh:targetClass aleph:SparqlAssertion ;
+    rdfs:label "SPARQL Assertion Shape"@en ;
+
+    sh:property [
+        sh:path prov:wasGeneratedBy ;
+        sh:minCount 1 ;
+        sh:severity sh:Violation ] ;
+
+    sh:property [
+        sh:path aleph:query ;
+        sh:minCount 1 ;
+        sh:datatype xsd:string ;
+        sh:message "SparqlAssertion requires aleph:query" ;
+        sh:severity sh:Violation ] ;
+
+    sh:property [
+        sh:path aleph:endpoints ;
+        sh:minCount 1 ;
+        sh:message "SparqlAssertion requires at least one aleph:endpoints" ;
+        sh:severity sh:Violation ] .
+
+#################################################################
+# ImaginedAssertionShape — only provenance required
+#################################################################
+aleph:ImaginedAssertionShape a sh:NodeShape ;
+    sh:targetClass aleph:ImaginedAssertion ;
+    rdfs:label "Imagined Assertion Shape"@en ;
+
+    sh:property [
+        sh:path prov:wasGeneratedBy ;
+        sh:minCount 1 ;
+        sh:message "ImaginedAssertion requires prov:wasGeneratedBy" ;
+        sh:severity sh:Violation ] .

@@ -14,6 +14,9 @@
     "Event":         "aleph:Event",
     "Edit":          "aleph:Edit",
     "AlephSession":  "aleph:AlephSession",
+    "WebSearchAssertion": "aleph:WebSearchAssertion",
+    "SparqlAssertion":    "aleph:SparqlAssertion",
+    "ImaginedAssertion":  "aleph:ImaginedAssertion",
 
     "position":            { "@id": "aleph:position",            "@type": "xsd:integer" },
     "speaker":             { "@id": "aleph:speaker" },
@@ -22,6 +25,9 @@
     "editKind":            { "@id": "aleph:editKind" },
     "perceivedImportance": { "@id": "aleph:perceivedImportance", "@type": "xsd:decimal" },
     "derivedFrom":         { "@id": "aleph:derivedFrom",         "@type": "@id" },
+    "searchQuery": { "@id": "aleph:searchQuery" },
+    "query":       { "@id": "aleph:query" },
+    "endpoints":   { "@id": "aleph:endpoints" },
     "requires":            { "@id": "aleph:requires",            "@type": "@id" },
     "exemplifies":         { "@id": "aleph:exemplifies",         "@type": "@id" },
 
