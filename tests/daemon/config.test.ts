@@ -3,7 +3,14 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { loadConfig } from '../../src/daemon/config';
 
 const SAVED = { ...process.env };
-afterEach(() => { process.env = { ...SAVED }; });
+afterEach(() => {
+  for (const key of Object.keys(process.env)) {
+    if (!(key in SAVED)) delete process.env[key];
+  }
+  for (const key of Object.keys(SAVED)) {
+    process.env[key] = SAVED[key];
+  }
+});
 
 describe('loadConfig', () => {
   it('reads POD_BASE and splits COMUNICA_SOURCES on commas', () => {
