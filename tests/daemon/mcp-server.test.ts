@@ -64,33 +64,29 @@ describe('assert_triples tool (advisory SHACL — default)', () => {
 });
 
 describe('assert_triples tool (enforceShacl: true)', () => {
-  // A payload Concept missing its required prov fields fails ConceptShape, which
-  // fires on the absolute g: IRI today (unlike the assertion-header constraints,
-  // whose @id:"" node is dropped before validation — see the SHACL gate TODO).
-  const badConceptPayload = {
-    '@graph': [{ '@id': 'g:Solid', '@type': 'Concept', prefLabel: { en: 'Solid' } }],
-  };
-
+  // The assertion *header* (@id: "") now resolves against the doc URL the daemon
+  // passes as the JSON-LD base, so header shapes actually run: a SparqlAssertion
+  // without aleph:query is now a real violation (it silently passed before).
   it('blocks the write on a SHACL violation and increments failures', async () => {
     const pod = recPod();
     const c = ctx();
     const tools = makeTools({ pod: pod as any, validator, sparql: {} as any, enforceShacl: true }, c);
     const res = await tools.assert_triples({
-      sessionId: 's1', kind: 'web', jsonld: badConceptPayload,
-      provenance: { derivedFrom: 'https://solidproject.org', searchQuery: 'solid' },
+      sessionId: 's1', kind: 'sparql', jsonld: { '@graph': [] },
+      provenance: { endpoints: ['https://dbpedia.org/sparql'] }, // no query
     });
     expect(res).toMatchObject({ error: 'shacl' });
     expect(pod.puts).toHaveLength(0);
-    expect(c.shaclFailures.get('web')).toBe(1);
+    expect(c.shaclFailures.get('sparql')).toBe(1);
   });
 
   it('returns persistent error after 3 shacl failures for the same kind', async () => {
     const pod = recPod();
     const c = ctx();
-    c.shaclFailures.set('web', 3);
+    c.shaclFailures.set('sparql', 3);
     const tools = makeTools({ pod: pod as any, validator, sparql: {} as any, enforceShacl: true }, c);
     const res = await tools.assert_triples({
-      sessionId: 's1', kind: 'web', jsonld: badConceptPayload, provenance: {},
+      sessionId: 's1', kind: 'sparql', jsonld: { '@graph': [] }, provenance: {},
     });
     expect(res).toMatchObject({ error: 'persistent' });
   });

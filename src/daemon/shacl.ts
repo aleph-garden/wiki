@@ -37,16 +37,20 @@ export class ShaclValidator {
     return new ShaclValidator(new SHACLValidator(shapes, { factory: rdf }));
   }
 
-  async validateJsonLd(doc: jsonld.JsonLdDocument): Promise<ShaclResult> {
-    // No `base` is passed, so document-relative ids (`@id: ""`, used by the
-    // assertion/reply *headers*) cannot resolve to an absolute IRI and are
-    // dropped before validation — only absolute (`g:…`) payload nodes are
-    // checked. Enforcement is advisory for now (vocab unstable); making header
-    // constraints actually gate writes needs a base IRI here plus relaxing the
-    // cross-document `sh:class aleph:AlephSession` constraints. Tracked for when
-    // the vocab stabilizes.
+  /**
+   * Validate a JSON-LD document against the loaded shapes.
+   *
+   * `documentUrl` is the absolute IRI the document will be stored at. It is
+   * passed as the JSON-LD `base`, so document-relative ids (`@id: ""`, used by
+   * the assertion/reply *headers*) resolve to that concrete IRI instead of
+   * being dropped. The agent always leaves the header `@id` empty; the daemon
+   * knows where each doc lands and fills the identity in here. Omit it only for
+   * fully-absolute documents (e.g. tests).
+   */
+  async validateJsonLd(doc: jsonld.JsonLdDocument, documentUrl?: string): Promise<ShaclResult> {
     const nquads = (await jsonld.toRDF(doc, {
       format: 'application/n-quads',
+      ...(documentUrl ? { base: documentUrl } : {}),
     })) as string;
     const data = datasetFromQuads(nquads, 'n-quads');
     const report = await this.validator.validate(data);

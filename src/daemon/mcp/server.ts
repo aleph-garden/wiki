@@ -27,6 +27,9 @@ function fileTs(): string { return new Date().toISOString().replace(/[-:]/g, '')
 export function makeTools(deps: ToolDeps, ctx: RunContext) {
   const { pod, validator, sparql, enforceShacl = false } = deps;
 
+  /** Absolute IRI a doc will be stored at — the JSON-LD base for `@id: ""`. */
+  const docUrl = (path: string) => pod.baseUrl.replace(/\/$/, '') + path;
+
   async function read_pod(input: { path: string }) {
     try {
       const body = await pod.getResource(input.path);
@@ -45,7 +48,7 @@ export function makeTools(deps: ToolDeps, ctx: RunContext) {
     const built = buildReplyDoc({
       sessionId: input.sessionId, msgN: input.msgN, body: input.body, now: nowIso(),
     });
-    const report = await validator.validateJsonLd(built.validationDoc);
+    const report = await validator.validateJsonLd(built.validationDoc, docUrl(built.path));
     if (!report.conforms) {
       if (enforceShacl) return { error: 'shacl' as const, report: report.results };
       console.warn(`[mcp] SHACL advisory (not blocking) on ${built.path}: ${report.results.join('; ')}`);
@@ -76,7 +79,7 @@ export function makeTools(deps: ToolDeps, ctx: RunContext) {
       sessionId: input.sessionId, msgN: ctx.msgN, kind: input.kind,
       now: nowIso(), ts: fileTs(), jsonld: input.jsonld, provenance: input.provenance,
     });
-    const report = await validator.validateJsonLd(built.validationDoc);
+    const report = await validator.validateJsonLd(built.validationDoc, docUrl(built.path));
     if (!report.conforms) {
       if (enforceShacl) {
         ctx.shaclFailures.set(input.kind, (ctx.shaclFailures.get(input.kind) ?? 0) + 1);
