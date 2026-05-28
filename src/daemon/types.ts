@@ -8,6 +8,12 @@ export interface Config {
   comunicaSources: string[];
   promptPath: string;
   model?: string;
+  /**
+   * When true, SHACL non-conformance blocks the write (and trips the retry cap).
+   * When false (default), validation is advisory: it runs and logs warnings but
+   * never blocks a write. Kept off while the vocab is still unstable.
+   */
+  shaclEnforce: boolean;
 }
 
 /** A genuinely-new, unanswered user message that needs a reply. */

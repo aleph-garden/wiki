@@ -38,6 +38,13 @@ export class ShaclValidator {
   }
 
   async validateJsonLd(doc: jsonld.JsonLdDocument): Promise<ShaclResult> {
+    // No `base` is passed, so document-relative ids (`@id: ""`, used by the
+    // assertion/reply *headers*) cannot resolve to an absolute IRI and are
+    // dropped before validation — only absolute (`g:…`) payload nodes are
+    // checked. Enforcement is advisory for now (vocab unstable); making header
+    // constraints actually gate writes needs a base IRI here plus relaxing the
+    // cross-document `sh:class aleph:AlephSession` constraints. Tracked for when
+    // the vocab stabilizes.
     const nquads = (await jsonld.toRDF(doc, {
       format: 'application/n-quads',
     })) as string;

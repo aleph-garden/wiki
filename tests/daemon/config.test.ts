@@ -37,4 +37,13 @@ describe('loadConfig', () => {
     const c = loadConfig();
     expect(c.model).toBe('claude-opus-4-8');
   });
+
+  it('defaults shaclEnforce off and enables it only for SHACL_ENFORCE=true', () => {
+    delete process.env.SHACL_ENFORCE;
+    expect(loadConfig().shaclEnforce).toBe(false);
+    process.env.SHACL_ENFORCE = 'true';
+    expect(loadConfig().shaclEnforce).toBe(true);
+    process.env.SHACL_ENFORCE = '1';
+    expect(loadConfig().shaclEnforce).toBe(false);
+  });
 });

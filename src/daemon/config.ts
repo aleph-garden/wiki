@@ -10,5 +10,6 @@ export function loadConfig(): Config {
     comunicaSources: sources,
     promptPath: process.env.PROMPT_PATH ?? 'prompts/agent-event.md',
     model: process.env.AGENT_MODEL || undefined,
+    shaclEnforce: process.env.SHACL_ENFORCE === 'true',
   };
 }
