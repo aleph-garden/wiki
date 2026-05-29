@@ -62,6 +62,9 @@ export async function blessSession(pod: PodLike, sessionId: string): Promise<{ p
     quads.filter((q) => q.subject.value.startsWith(sessionPrefix)).map((q) => q.subject.value),
   )];
 
+  // Mint target for new concepts — resolved once (same for every entity).
+  const conceptContainer = (await resolveContainers(pod, `${V}Concept`))[0].replace(/\/$/, '');
+
   const remap = new Map<string, string>();
   for (const iri of entities) {
     const slug = iri.slice(sessionPrefix.length);
@@ -70,9 +73,7 @@ export async function blessSession(pod: PodLike, sessionId: string): Promise<{ p
       (q) => q.subject.value === iri && q.predicate.value === `${SKOS}prefLabel`,
     )?.object.value;
     const existing = label ? await findCanonicalByLabel(pod, label) : null;
-    if (existing) { remap.set(iri, existing); continue; }
-    const container = (await resolveContainers(pod, `${V}Concept`))[0].replace(/\/$/, '');
-    remap.set(iri, `${pod.baseUrl}${container}/${slug}`);
+    remap.set(iri, existing ?? `${pod.baseUrl}${conceptContainer}/${slug}`);
   }
 
   const remapTerm = (t: Term): Term =>
