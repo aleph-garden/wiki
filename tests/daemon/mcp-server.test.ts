@@ -66,6 +66,20 @@ describe('write_message tool', () => {
     await tools.write_message({ sessionId: 'EVIL', msgN: 3, body: 'hi' });
     expect(pod.puts[0].path).toBe('/aleph/sessions/s1/msg4.ttl');
   });
+
+  it('assert_claim has no sessionId parameter (compile-time enforced)', async () => {
+    const pod = recPod();
+    const c = ctx();
+    const tools = makeTools({ pod: pod as any, validator, sparql: {} as any }, c);
+    await tools.assert_claim({
+      // @ts-expect-error — sessionId is not part of assert_claim's input
+      sessionId: 'EVIL',
+      kind: 'imagined',
+      concepts: [{ '@type': 'Concept', prefLabel: { en: 'X' } }],
+      provenance: {},
+    });
+    expect(pod.puts[0].path).toMatch(/^\/aleph\/sessions\/s1\/claim_/);
+  });
 });
 
 describe('assert_claim tool (advisory SHACL — default)', () => {

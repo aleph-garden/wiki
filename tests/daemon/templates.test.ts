@@ -47,6 +47,22 @@ describe('buildReplyDoc', () => {
 });
 
 describe('buildClaimDoc', () => {
+  it('expands Person type and definition/altLabel to canonical vocab URIs', async () => {
+    const built = buildClaimDoc({
+      sessionId: '260529-001', ts: 't', kind: 'imagined', now: '2026-05-29T10:00:00Z',
+      concepts: [{ '@type': 'Person', prefLabel: { en: 'Alan Turing' },
+                   definition: { en: 'Mathematician.' }, altLabel: { en: 'Turing' } }],
+      provenance: {},
+    });
+    const base = `http://localhost:3000${built.path}`;
+    const qs = new Parser().parse(await toTurtle(built.validationDoc, base));
+    const iri = 'http://localhost:3000/aleph/sessions/260529-001/g/AlanTuring';
+    const RDF_TYPE = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type';
+    expect(qs.some((q) => q.subject.value === iri && q.predicate.value === RDF_TYPE && q.object.value === 'https://vocab.aleph.wiki/Person')).toBe(true);
+    expect(qs.some((q) => q.subject.value === iri && q.predicate.value === 'http://www.w3.org/2004/02/skos/core#definition')).toBe(true);
+    expect(qs.some((q) => q.subject.value === iri && q.predicate.value === 'http://www.w3.org/2004/02/skos/core#altLabel')).toBe(true);
+  });
+
   it('targets the session container as .ttl and mints concept @id from prefLabel', async () => {
     const built = buildClaimDoc({
       sessionId: '260529-001', ts: '20260529T100000', kind: 'imagined',
