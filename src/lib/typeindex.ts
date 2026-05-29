@@ -47,6 +47,15 @@ export async function ensureRegistration(
   await pod.putResource(TYPE_INDEX_PATH, body);
 }
 
+const V = 'https://vocab.aleph.wiki/';
+const NODE_CLASSES = [`${V}Concept`, `${V}Person`, `${V}Event`];
+
+/** De-duplicated set of containers that hold renderable graph nodes. */
+export async function conceptContainers(pod: PodLike): Promise<string[]> {
+  const all = await Promise.all(NODE_CLASSES.map((c) => resolveContainers(pod, c)));
+  return [...new Set(all.flat())];
+}
+
 /**
  * Containers registered for `classIri` in the pod's public TypeIndex. Falls
  * back to the default `/g/` when the class is unregistered or no index exists.
