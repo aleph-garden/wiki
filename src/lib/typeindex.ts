@@ -6,6 +6,7 @@ const TYPE_INDEX_PATH = '/settings/publicTypeIndex.ttl';
 const DEFAULT_CONTAINER = '/g/';
 
 type PodLike = Pick<PodClient, 'baseUrl' | 'getResource'>;
+type PodWritable = PodLike & Pick<PodClient, 'putResource'>;
 
 /** Local path of a container IRI/relative ref, normalized to start with `/`. */
 function toPath(base: string, ref: string): string {
@@ -15,6 +16,35 @@ function toPath(base: string, ref: string): string {
     return ref.replace(baseNorm, '') || '/';
   }
   return `/${ref}`;
+}
+
+/**
+ * Ensures `classIri` → `container` is present in the pod's public TypeIndex.
+ * No-op when the index already contains a `solid:forClass` quad for `classIri`.
+ * Appends (or creates) a TypeRegistration block and PUTs it back otherwise.
+ */
+export async function ensureRegistration(
+  pod: PodWritable,
+  classIri: string,
+  container: string,
+): Promise<void> {
+  let ttl: string | null = null;
+  try { ttl = await pod.getResource(TYPE_INDEX_PATH); } catch { ttl = null; }
+
+  if (ttl !== null) {
+    const quads = new Parser({ baseIRI: pod.baseUrl }).parse(ttl);
+    const already = quads.some(
+      (q) => q.predicate.value === `${SOLID}forClass` && q.object.value === classIri,
+    );
+    if (already) return;
+  }
+
+  const localName = classIri.split(/[/#]/).filter(Boolean).at(-1) ?? 'type';
+  const block = `\n<#${localName}> a solid:TypeRegistration ;\n  solid:forClass <${classIri}> ; solid:instanceContainer <${container}> .\n`;
+  const prefix = '@prefix solid: <http://www.w3.org/ns/solid/terms#> .\n';
+  const body = ttl !== null ? ttl + block : prefix + block;
+
+  await pod.putResource(TYPE_INDEX_PATH, body);
 }
 
 /**

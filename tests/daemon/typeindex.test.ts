@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest';
-import { resolveContainers } from '../../src/lib/typeindex';
+import { resolveContainers, ensureRegistration } from '../../src/lib/typeindex';
 
 const V = 'https://vocab.aleph.wiki/';
 const BASE = 'http://localhost:3000';
@@ -17,6 +17,31 @@ function stubPod(index: string | null) {
     async getResource(p: string) { return p === '/settings/publicTypeIndex.ttl' ? index : null; },
   };
 }
+
+describe('ensureRegistration', () => {
+  it('writes a registration when the class is not yet registered', async () => {
+    const puts: { path: string; body: string }[] = [];
+    const pod = {
+      baseUrl: BASE,
+      async getResource() { return null; },
+      async putResource(path: string, body: string) { puts.push({ path, body }); },
+    };
+    await ensureRegistration(pod as any, `${V}Concept`, '/g/');
+    expect(puts[0].path).toBe('/settings/publicTypeIndex.ttl');
+    expect(puts[0].body).toMatch(/solid:forClass\s+<https:\/\/vocab\.aleph\.wiki\/Concept>/);
+    expect(puts[0].body).toMatch(/solid:instanceContainer\s+<\/g\/>/);
+  });
+  it('is a no-op when the class is already registered', async () => {
+    const puts: unknown[] = [];
+    const pod = {
+      baseUrl: BASE,
+      async getResource() { return INDEX; },
+      async putResource() { puts.push(1); },
+    };
+    await ensureRegistration(pod as any, `${V}Concept`, '/g/');
+    expect(puts).toHaveLength(0);
+  });
+});
 
 describe('resolveContainers', () => {
   it('returns the registered container path for a class', async () => {
