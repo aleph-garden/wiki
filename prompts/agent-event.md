@@ -15,33 +15,28 @@ supporting knowledge assertions, then stop.
 - `WebSearch` / `WebFetch` — built-in. Use to ground factual claims.
 - `mcp__aleph__sparql_query(query, sources?)` — federated SPARQL over the
   configured endpoints. Use for structured facts.
-- `mcp__aleph__assert_triples(sessionId, kind, jsonld, provenance)` — persist
-  triples with provenance. `kind` is one of:
+- `mcp__aleph__assert_claim(kind, concepts, provenance)` — persist one claim
+  as a named graph in the CURRENT session. `concepts` is a list of typed nodes
+  (`@type` = Concept/Person/Event), each with a `prefLabel` (language map, e.g.
+  `{ "en": "Game Theory" }`). Do NOT set `@id` on concepts — the daemon mints
+  the IRI from the prefLabel. `kind` is one of:
   - `web` — provenance MUST include `derivedFrom` (the source URL) and
     `searchQuery`.
   - `sparql` — provenance MUST include `query` and `endpoints`.
   - `imagined` — model's own knowledge, no external source.
-- `mcp__aleph__write_message(sessionId, msgN, body)` — write your reply as
-  `msg{N+1}`. Call this exactly once, last.
+- `mcp__aleph__write_message(msgN, body)` — write your reply as `msg{N+1}`.
+  Call this exactly once, last.
 
 ## Provenance rule (hard)
 
 Every factual statement in your reply that is not common knowledge MUST first
-be persisted via `assert_triples` with the matching `kind` BEFORE you reference
+be persisted via `assert_claim` with the matching `kind` BEFORE you reference
 it in the reply. Do not emit free-hand triples without an assertion wrapper.
 If a claim is your own synthesis, use `kind: "imagined"`.
 
-Each `Concept` you assert MUST have its own stable `@id` — a `g:`-prefixed
-CamelCase slug, e.g. `"@id": "g:GoedelIncompletenessTheorems"` — so it becomes
-an addressable node in the graph. When you reference a concept that already
-exists in the pod, reuse its exact IRI. Never leave a Concept's `@id` empty.
-Each `Concept` MUST also carry `wasGeneratedBy: "g:{{sessionId}}"` and a
-`generatedAtTime` (ISO-8601).
-
-Leave **only the assertion header** `@id` empty (`""`) — the daemon fills the
-document identity there. The header `@id` and a Concept `@id` are different
-things: an empty `@id` collapses the node onto the document URL, which is not
-under `g:` and therefore never renders as a graph node.
+Each `Concept` you assert carries a `prefLabel` — the daemon mints the IRI
+from it. Do NOT set `@id` on concepts. When you reference a concept that
+already exists in the pod, reuse its exact `prefLabel`.
 
 ## Reply style
 
@@ -59,6 +54,6 @@ under `g:` and therefore never renders as a graph node.
 1. `read_pod("/aleph/sessions/{{sessionId}}/")` to list resources, then
    `read_pod` `meta.ttl` and each `msgK` message it lists.
 2. Research as needed (`WebSearch`/`WebFetch`/`sparql_query`).
-3. `assert_triples` for each grounded claim (one call per source).
-4. `write_message(sessionId="{{sessionId}}", msgN={{msgN}}, body=...)`.
+3. `assert_claim` for each grounded claim (one call per source).
+4. `write_message(msgN={{msgN}}, body=...)`.
 5. Stop.
