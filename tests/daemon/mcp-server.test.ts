@@ -50,9 +50,11 @@ describe('write_message tool', () => {
     const c = ctx();
     const tools = makeTools({ pod: pod as any, validator, sparql: {} as any }, c);
     const res = await tools.write_message({ sessionId: 's1', msgN: 3, body: 'hi' });
-    expect(res).toMatchObject({ ok: true, path: '/aleph/sessions/s1/msg4.jsonld' });
-    expect(pod.puts[0].path).toBe('/aleph/sessions/s1/msg4.jsonld');
-    expect(JSON.parse(pod.puts[0].body)['@context']).toBe('./context.jsonld');
+    expect(res).toMatchObject({ ok: true, path: '/aleph/sessions/s1/msg4.ttl' });
+    expect(pod.puts[0].path).toBe('/aleph/sessions/s1/msg4.ttl');
+    // Body is now Turtle with full URIs (JSS can't serve JSON-LD as Turtle).
+    expect(pod.puts[0].body).toMatch(/aleph\.wiki\/g\/s1_msg4/);
+    expect(pod.puts[0].body).toMatch(/vocab\.aleph\.wiki\/ChatMessage/);
     expect(c.messageWritten).toBe(true);
   });
 });

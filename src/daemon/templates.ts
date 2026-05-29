@@ -32,6 +32,30 @@ export const INLINE_CONTEXT: Record<string, unknown> = {
   generatedAtTime: { '@id': 'prov:generatedAtTime', '@type': 'xsd:dateTime' },
 };
 
+import jsonld from 'jsonld';
+import { Parser, Writer } from 'n3';
+
+/**
+ * Serialize an inline-context JSON-LD doc to Turtle, in-process.
+ *
+ * JSS stores .jsonld opaquely and serves an empty graph under conneg, so the
+ * UI (which ingests Turtle) never sees JSON-LD replies. We expand here with the
+ * embedded context — no relative ./context.jsonld dereference — and write
+ * Turtle with full URIs, which JSS round-trips correctly. `base` resolves any
+ * empty `@id: ""` (e.g. the Edit/assertion header) to the document's own URL.
+ */
+export async function toTurtle(validationDoc: Record<string, unknown>, base: string): Promise<string> {
+  const nquads = (await jsonld.toRDF(validationDoc as any, {
+    format: 'application/n-quads', base,
+  })) as unknown as string;
+  const quads = new Parser({ format: 'application/n-quads' }).parse(nquads);
+  return await new Promise<string>((resolve, reject) => {
+    const writer = new Writer();
+    writer.addQuads(quads);
+    writer.end((err, result) => (err ? reject(err) : resolve(result)));
+  });
+}
+
 export interface ReplyInput {
   sessionId: string;
   msgN: number;
@@ -40,16 +64,10 @@ export interface ReplyInput {
 }
 
 export interface BuiltDoc {
-  /** Inline-context JSON-LD for SHACL validation. */
+  /** Inline-context JSON-LD for SHACL validation and Turtle serialization. */
   validationDoc: Record<string, unknown>;
-  /** Serialized JSON-LD for PUT, using the relative ./context.jsonld. */
-  podBody: string;
-  /** Pod path to PUT to. */
+  /** Pod path to PUT to (Turtle). */
   path: string;
-}
-
-function podSerialize(graph: unknown[]): string {
-  return JSON.stringify({ '@context': './context.jsonld', '@graph': graph });
 }
 
 export function buildReplyDoc(input: ReplyInput): BuiltDoc {
@@ -75,8 +93,7 @@ export function buildReplyDoc(input: ReplyInput): BuiltDoc {
   ];
   return {
     validationDoc: { '@context': INLINE_CONTEXT, '@graph': graph },
-    podBody: podSerialize(graph),
-    path: `/aleph/sessions/${sessionId}/msg${next}.jsonld`,
+    path: `/aleph/sessions/${sessionId}/msg${next}.ttl`,
   };
 }
 
@@ -123,7 +140,6 @@ export function buildAssertionDoc(input: AssertionInput): BuiltDoc {
   const graph = [header, ...(jsonld['@graph'] ?? [])];
   return {
     validationDoc: { '@context': INLINE_CONTEXT, '@graph': graph },
-    podBody: podSerialize(graph),
-    path: `/aleph/assertions/${sessionId}/${kind}_${ts}.jsonld`,
+    path: `/aleph/assertions/${sessionId}/${kind}_${ts}.ttl`,
   };
 }

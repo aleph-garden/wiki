@@ -4,7 +4,7 @@ import type { PodClient } from '../../lib/pod';
 import type { ShaclValidator } from '../shacl';
 import type { SparqlEngine } from './sparql';
 import type { RunContext } from '../types';
-import { buildReplyDoc, buildAssertionDoc, type AssertionKind } from '../templates';
+import { buildReplyDoc, buildAssertionDoc, toTurtle, type AssertionKind } from '../templates';
 
 export interface ToolDeps {
   pod: PodClient;
@@ -79,9 +79,10 @@ export function makeTools(deps: ToolDeps, ctx: RunContext) {
       if (enforceShacl) return { error: 'shacl' as const, report: report.results };
       console.warn(`[mcp] SHACL advisory (not blocking) on ${built.path}: ${report.results.join('; ')}`);
     }
+    const podBody = await toTurtle(built.validationDoc, docUrl(built.path));
     try {
-      await pod.putResource(built.path, built.podBody, {
-        contentType: 'application/ld+json', ifNoneMatch: true,
+      await pod.putResource(built.path, podBody, {
+        contentType: 'text/turtle', ifNoneMatch: true,
       });
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -120,7 +121,8 @@ export function makeTools(deps: ToolDeps, ctx: RunContext) {
       }
       console.warn(`[mcp] SHACL advisory (not blocking) on ${built.path}: ${report.results.join('; ')}`);
     }
-    await pod.putResource(built.path, built.podBody, { contentType: 'application/ld+json' });
+    const podBody = await toTurtle(built.validationDoc, docUrl(built.path));
+    await pod.putResource(built.path, podBody, { contentType: 'text/turtle' });
     console.log(`[mcp] assert_triples ${input.kind} → ${built.path}`);
     return { ok: true as const, path: built.path };
   }

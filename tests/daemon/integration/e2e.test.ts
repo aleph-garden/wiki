@@ -48,7 +48,7 @@ describe('e2e: realistic tool sequence', () => {
     };
     await runAgent({ sessionId: 's_abc', msgN: 1 }, deps(pod), mockQuery as any);
 
-    expect(pod.store.has('/aleph/sessions/s_abc/msg2.jsonld')).toBe(true);
+    expect(pod.store.has('/aleph/sessions/s_abc/msg2.ttl')).toBe(true);
     const assertionKey = [...pod.store.keys()].find((k) => k.startsWith('/aleph/assertions/s_abc/web_'));
     expect(assertionKey).toBeDefined();
   });
