@@ -9,18 +9,26 @@
     "preview": "vite preview",
     "typecheck": "vue-tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "daemon": "bun run src/daemon/main.ts"
   },
   "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.3.154",
+    "@comunica/query-sparql": "^5.2.3",
     "d3": "^7.9.0",
+    "jsonld": "^9.0.0",
     "n3": "^2.0.3",
     "oxigraph": "^0.5.8",
+    "rdf-ext": "^2.6.0",
+    "shacl-engine": "^1.1.0",
     "vite-plugin-top-level-await": "^1.6.0",
     "vite-plugin-wasm": "^3.6.0",
-    "vue": "^3.5.13"
+    "vue": "^3.5.13",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/d3": "^7.4.3",
+    "@types/jsonld": "^1.5.15",
     "@types/n3": "^1.26.1",
     "@vitejs/plugin-vue": "^5.2.1",
     "@vitest/ui": "^4.1.7",
