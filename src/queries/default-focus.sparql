@@ -33,7 +33,7 @@ SELECT ?focus WHERE {
   } UNION {
     ?focus a ?t .
     FILTER(?t IN (aleph:Concept, aleph:ImportantConcept))
-    FILTER(STRSTARTS(STR(?focus), "https://aleph.wiki/g/"))
+    FILTER(REGEX(STR(?focus), "^https?://[^/]+/g/[^/]+$"))
     BIND(2 AS ?prio)
   }
 }

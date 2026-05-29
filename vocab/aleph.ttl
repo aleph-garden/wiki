@@ -95,6 +95,8 @@ aleph:conceptCount  a owl:DatatypeProperty ;
 aleph:position      a owl:DatatypeProperty ; rdfs:range xsd:integer .
 aleph:speaker       a owl:DatatypeProperty ; rdfs:range xsd:string .  # "user" | "agent"
 aleph:body          a owl:DatatypeProperty ; rdfs:range xsd:string .
+aleph:turn          a owl:DatatypeProperty ; rdfs:range xsd:integer ;
+    rdfs:comment "1-based position of the agent turn that proposed a claim, for in-session grouping."@en .
 aleph:hint          a owl:DatatypeProperty ; rdfs:range xsd:string .  # e.g. "insight", "suggestion"
 
 # View state

@@ -7,7 +7,7 @@ export class PodClient {
   constructor(public baseUrl: string) {}
 
   url(path: string): string {
-    return this.baseUrl.replace(/\/$/, '') + path;
+    return this.baseUrl.replace(/\/$/, '') + '/' + path.replace(/^\//, '');
   }
 
   async putResource(path: string, body: string, opts: PutOptions = {}): Promise<void> {

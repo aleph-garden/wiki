@@ -1,0 +1,75 @@
+import { Parser } from 'n3';
+import type { PodClient } from './pod';
+
+const SOLID = 'http://www.w3.org/ns/solid/terms#';
+const TYPE_INDEX_PATH = '/settings/publicTypeIndex.ttl';
+const DEFAULT_CONTAINER = '/g/';
+
+type PodLike = Pick<PodClient, 'baseUrl' | 'getResource'>;
+type PodWritable = PodLike & Pick<PodClient, 'putResource'>;
+
+/** Local path of a container IRI/relative ref, normalized to start with `/`. */
+function toPath(base: string, ref: string): string {
+  if (ref.startsWith('/')) return ref;
+  if (ref.startsWith('http')) {
+    const baseNorm = base.replace(/\/$/, '');
+    return ref.replace(baseNorm, '') || '/';
+  }
+  return `/${ref}`;
+}
+
+/**
+ * Ensures `classIri` → `container` is present in the pod's public TypeIndex.
+ * No-op when the index already contains a `solid:forClass` quad for `classIri`.
+ * Appends (or creates) a TypeRegistration block and PUTs it back otherwise.
+ */
+export async function ensureRegistration(
+  pod: PodWritable,
+  classIri: string,
+  container: string,
+): Promise<void> {
+  let ttl: string | null = null;
+  try { ttl = await pod.getResource(TYPE_INDEX_PATH); } catch { ttl = null; }
+
+  if (ttl !== null) {
+    const quads = new Parser({ baseIRI: pod.baseUrl }).parse(ttl);
+    const already = quads.some(
+      (q) => q.predicate.value === `${SOLID}forClass` && q.object.value === classIri,
+    );
+    if (already) return;
+  }
+
+  const localName = classIri.split(/[/#]/).filter(Boolean).at(-1) ?? 'type';
+  const block = `\n<#${localName}> a solid:TypeRegistration ;\n  solid:forClass <${classIri}> ; solid:instanceContainer <${container}> .\n`;
+  const prefix = '@prefix solid: <http://www.w3.org/ns/solid/terms#> .\n';
+  const body = ttl !== null ? ttl + block : prefix + block;
+
+  await pod.putResource(TYPE_INDEX_PATH, body);
+}
+
+const V = 'https://vocab.aleph.wiki/';
+const NODE_CLASSES = [`${V}Concept`, `${V}Person`, `${V}Event`];
+
+/** De-duplicated set of containers that hold renderable graph nodes. */
+export async function conceptContainers(pod: PodLike): Promise<string[]> {
+  const all = await Promise.all(NODE_CLASSES.map((c) => resolveContainers(pod, c)));
+  return [...new Set(all.flat())];
+}
+
+/**
+ * Containers registered for `classIri` in the pod's public TypeIndex. Falls
+ * back to the default `/g/` when the class is unregistered or no index exists.
+ */
+export async function resolveContainers(pod: PodLike, classIri: string): Promise<string[]> {
+  let ttl: string | null = null;
+  try { ttl = await pod.getResource(TYPE_INDEX_PATH); } catch { ttl = null; }
+  if (!ttl) return [DEFAULT_CONTAINER];
+  const quads = new Parser({ baseIRI: pod.baseUrl }).parse(ttl);
+  const regs = quads
+    .filter((q) => q.predicate.value === `${SOLID}forClass` && q.object.value === classIri)
+    .map((q) => q.subject.value);
+  const containers = quads
+    .filter((q) => regs.includes(q.subject.value) && q.predicate.value === `${SOLID}instanceContainer`)
+    .map((q) => toPath(pod.baseUrl, q.object.value));
+  return containers.length > 0 ? containers : [DEFAULT_CONTAINER];
+}

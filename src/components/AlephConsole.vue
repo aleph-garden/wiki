@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import type { Palette } from '../palette';
 import ChatInput from './ChatInput.vue';
 import type { Mode } from './types';
@@ -10,6 +10,9 @@ import {
   useActiveSessionId,
   useChat,
 } from '../lib/queries';
+import { blessSession } from '../daemon/bless';
+import { getPod, reloadContainer } from '../lib/rdf';
+import { ensureRegistration } from '../lib/typeindex';
 
 defineProps<{
   palette: Palette;
@@ -52,6 +55,27 @@ function formatTime(iso?: string): string {
   const t = iso.slice(11, 16);
   return t || '';
 }
+
+const blessing = ref(false);
+const blessResult = ref<string | null>(null);
+
+async function bless() {
+  const sid = activeSessionId.value;
+  if (!sid || blessing.value) return;
+  blessing.value = true;
+  blessResult.value = null;
+  try {
+    const pod = getPod();
+    await ensureRegistration(pod, 'https://vocab.aleph.wiki/Concept', '/g/');
+    const { promoted } = await blessSession(pod, sid);
+    await reloadContainer('/g/');
+    blessResult.value = `Blessed — ${promoted.length} concept(s) promoted`;
+  } catch (e) {
+    blessResult.value = `Bless failed: ${e instanceof Error ? e.message : String(e)}`;
+  } finally {
+    blessing.value = false;
+  }
+}
 </script>
 
 <template>
@@ -89,7 +113,16 @@ function formatTime(iso?: string): string {
           }"
         >WRITING</span>
       </div>
-      <span :style="{ fontSize: '10px', color: palette.mute }">{{ activeAgent }}</span>
+      <div style="display: flex; align-items: center; gap: 8px">
+        <button
+          v-if="activeSessionId"
+          class="bless-btn"
+          :disabled="blessing"
+          @click="bless"
+        >{{ blessing ? 'Blessing…' : 'Bless session' }}</button>
+        <span v-if="blessResult" class="bless-result">{{ blessResult }}</span>
+        <span :style="{ fontSize: '10px', color: palette.mute }">{{ activeAgent }}</span>
+      </div>
     </div>
 
     <!-- chat -->
@@ -247,3 +280,25 @@ function formatTime(iso?: string): string {
     </div>
   </aside>
 </template>
+
+<style scoped>
+.bless-btn {
+  font-size: 10px;
+  font-family: var(--font-mono, monospace);
+  padding: 2px 7px;
+  border-radius: 3px;
+  border: 1px solid currentColor;
+  background: transparent;
+  cursor: pointer;
+  letter-spacing: 0.5px;
+  opacity: 0.8;
+}
+.bless-btn:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+.bless-result {
+  font-size: 9.5px;
+  opacity: 0.7;
+}
+</style>

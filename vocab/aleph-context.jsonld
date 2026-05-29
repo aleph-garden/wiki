@@ -19,6 +19,7 @@
     "ImaginedAssertion":  "aleph:ImaginedAssertion",
 
     "position":            { "@id": "aleph:position",            "@type": "xsd:integer" },
+    "turn":                { "@id": "aleph:turn",                "@type": "xsd:integer" },
     "speaker":             { "@id": "aleph:speaker" },
     "body":                { "@id": "aleph:body" },
     "hint":                { "@id": "aleph:hint" },

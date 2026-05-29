@@ -36,7 +36,7 @@ SELECT (COUNT(*) AS ?n) WHERE {
       FILTER(?ot IN (aleph:Concept, aleph:ImportantConcept, aleph:Person,
                      aleph:Event, foaf:Person))
     })
-    FILTER(STRSTARTS(STR(?s), "https://aleph.wiki/g/"))
-    FILTER(STRSTARTS(STR(?o), "https://aleph.wiki/g/"))
+    FILTER(REGEX(STR(?s), "^https?://[^/]+/g/[^/]+$"))
+    FILTER(REGEX(STR(?o), "^https?://[^/]+/g/[^/]+$"))
   }
 }

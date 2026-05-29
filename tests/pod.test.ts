@@ -1,6 +1,20 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { PodClient } from '../src/lib/pod';
 
+describe('PodClient.url', () => {
+  it('joins a path with a slash even when the agent omits the leading slash', () => {
+    const c = new PodClient('http://localhost:3000');
+    expect(c.url('/aleph/chat/')).toBe('http://localhost:3000/aleph/chat/');
+    expect(c.url('aleph/chat/')).toBe('http://localhost:3000/aleph/chat/');
+  });
+
+  it('does not double the slash when baseUrl has a trailing slash', () => {
+    const c = new PodClient('http://localhost:3000/');
+    expect(c.url('/aleph/x')).toBe('http://localhost:3000/aleph/x');
+    expect(c.url('aleph/x')).toBe('http://localhost:3000/aleph/x');
+  });
+});
+
 describe('PodClient.putResource', () => {
   let fetchMock: ReturnType<typeof vi.fn>;
 

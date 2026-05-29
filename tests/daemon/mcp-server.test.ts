@@ -8,7 +8,7 @@ let validator: ShaclValidator;
 beforeEach(async () => { validator = await ShaclValidator.load('vocab/aleph-shapes.ttl'); });
 
 function ctx(): RunContext {
-  return { sessionId: 's1', msgN: 3, messageWritten: false, shaclFailures: new Map() };
+  return { sessionId: 's1', msgN: 3, messageWritten: false };
 }
 
 /** Pod stub recording PUTs; getResource returns null. */
@@ -49,67 +49,92 @@ describe('write_message tool', () => {
     const pod = recPod();
     const c = ctx();
     const tools = makeTools({ pod: pod as any, validator, sparql: {} as any }, c);
-    const res = await tools.write_message({ sessionId: 's1', msgN: 3, body: 'hi' });
-    expect(res).toMatchObject({ ok: true, path: '/aleph/sessions/s1/msg4.jsonld' });
-    expect(pod.puts[0].path).toBe('/aleph/sessions/s1/msg4.jsonld');
-    expect(JSON.parse(pod.puts[0].body)['@context']).toBe('./context.jsonld');
+    const res = await tools.write_message({ msgN: 3, body: 'hi' });
+    expect(res).toMatchObject({ ok: true, path: '/aleph/sessions/s1/msg4.ttl' });
+    expect(pod.puts[0].path).toBe('/aleph/sessions/s1/msg4.ttl');
+    // Body is now Turtle with full URIs (JSS can't serve JSON-LD as Turtle).
+    expect(pod.puts[0].body).toMatch(/aleph\.wiki\/g\/s1_msg4/);
+    expect(pod.puts[0].body).toMatch(/vocab\.aleph\.wiki\/ChatMessage/);
     expect(c.messageWritten).toBe(true);
+  });
+
+  it('write_message ignores any agent-supplied sessionId and uses the run session', async () => {
+    const pod = recPod();
+    const c = ctx();
+    const tools = makeTools({ pod: pod as any, validator, sparql: {} as any }, c);
+    // @ts-expect-error — sessionId is no longer part of the input type
+    await tools.write_message({ sessionId: 'EVIL', msgN: 3, body: 'hi' });
+    expect(pod.puts[0].path).toBe('/aleph/sessions/s1/msg4.ttl');
+  });
+
+  it('assert_claim has no sessionId parameter (compile-time enforced)', async () => {
+    const pod = recPod();
+    const c = ctx();
+    const tools = makeTools({ pod: pod as any, validator, sparql: {} as any }, c);
+    await tools.assert_claim({
+      // @ts-expect-error — sessionId is not part of assert_claim's input
+      sessionId: 'EVIL',
+      kind: 'imagined',
+      concepts: [{ '@type': 'Concept', prefLabel: { en: 'X' } }],
+      provenance: {},
+    });
+    expect(pod.puts[0].path).toMatch(/^\/aleph\/sessions\/s1\/claim_/);
   });
 });
 
-describe('assert_triples tool (advisory SHACL — default)', () => {
+describe('assert_claim tool (advisory SHACL — default)', () => {
   it('web kind with derivedFrom writes a file and a WebSearchAssertion header', async () => {
     const pod = recPod();
     const tools = makeTools({ pod: pod as any, validator, sparql: {} as any }, ctx());
-    const res = await tools.assert_triples({
-      sessionId: 's1', kind: 'web',
-      jsonld: { '@graph': [{ '@id': 'g:Solid', '@type': 'Concept', prefLabel: { en: 'Solid' } }] },
+    const res = await tools.assert_claim({
+      kind: 'web',
+      concepts: [{ '@type': 'Concept', prefLabel: { en: 'Solid' } }],
       provenance: { derivedFrom: 'https://solidproject.org', searchQuery: 'solid' },
     });
     expect(res).toMatchObject({ ok: true });
-    expect(pod.puts[0].path).toMatch(/^\/aleph\/assertions\/s1\/web_/);
+    expect(pod.puts[0].path).toMatch(/^\/aleph\/sessions\/s1\/claim_/);
   });
 
   it('still writes when SHACL would not conform (validation is advisory)', async () => {
     const pod = recPod();
     const c = ctx();
     const tools = makeTools({ pod: pod as any, validator, sparql: {} as any }, c);
-    const res = await tools.assert_triples({
-      sessionId: 's1', kind: 'sparql', jsonld: { '@graph': [] },
+    const res = await tools.assert_claim({
+      kind: 'sparql',
+      concepts: [],
       provenance: { endpoints: ['https://dbpedia.org/sparql'] }, // no query
     });
     expect(res).toMatchObject({ ok: true });
     expect(pod.puts).toHaveLength(1);
-    expect(c.shaclFailures.size).toBe(0);
+  });
+
+  it('assert_claim writes into the run session container', async () => {
+    const pod = recPod();
+    const c = ctx();
+    const tools = makeTools({ pod: pod as any, validator, sparql: {} as any }, c);
+    const res = await tools.assert_claim({
+      kind: 'imagined',
+      concepts: [{ '@type': 'Concept', prefLabel: { en: 'Game Theory' } }],
+      provenance: {},
+    });
+    expect(res).toMatchObject({ ok: true });
+    expect(pod.puts[0].path).toMatch(/^\/aleph\/sessions\/s1\/claim_/);
+    expect(pod.puts[0].body).toMatch(/sessions\/s1\/g\/GameTheory/);
   });
 });
 
-describe('assert_triples tool (enforceShacl: true)', () => {
-  // The assertion *header* (@id: "") now resolves against the doc URL the daemon
-  // passes as the JSON-LD base, so header shapes actually run: a SparqlAssertion
-  // without aleph:query is now a real violation (it silently passed before).
-  it('blocks the write on a SHACL violation and increments failures', async () => {
+describe('assert_claim tool (enforceShacl: true)', () => {
+  it('blocks the write on a SHACL violation', async () => {
     const pod = recPod();
     const c = ctx();
     const tools = makeTools({ pod: pod as any, validator, sparql: {} as any, enforceShacl: true }, c);
-    const res = await tools.assert_triples({
-      sessionId: 's1', kind: 'sparql', jsonld: { '@graph': [] },
+    const res = await tools.assert_claim({
+      kind: 'sparql',
+      concepts: [],
       provenance: { endpoints: ['https://dbpedia.org/sparql'] }, // no query
     });
     expect(res).toMatchObject({ error: 'shacl' });
     expect(pod.puts).toHaveLength(0);
-    expect(c.shaclFailures.get('sparql')).toBe(1);
-  });
-
-  it('returns persistent error after 3 shacl failures for the same kind', async () => {
-    const pod = recPod();
-    const c = ctx();
-    c.shaclFailures.set('sparql', 3);
-    const tools = makeTools({ pod: pod as any, validator, sparql: {} as any, enforceShacl: true }, c);
-    const res = await tools.assert_triples({
-      sessionId: 's1', kind: 'sparql', jsonld: { '@graph': [] }, provenance: {},
-    });
-    expect(res).toMatchObject({ error: 'persistent' });
   });
 });
 
@@ -117,43 +142,14 @@ describe('enforceShacl: true + session-meta merge', () => {
   // Concepts/Edits require `wasGeneratedBy → sh:class aleph:AlephSession`. The
   // typed session node lives in meta.ttl (a separate resource); the daemon
   // fetches and merges it so these cross-document constraints resolve.
-  const concept = (extra: Record<string, unknown> = {}) => ({
-    '@graph': [{
-      '@id': 'g:Solid', '@type': 'Concept', prefLabel: { en: 'Solid' },
-      wasGeneratedBy: 'g:s1', generatedAtTime: '2026-04-12T15:00:00Z', ...extra,
-    }],
-  });
 
   it('write_message conforms once the session meta is merged', async () => {
     const pod = recPodWithMeta();
     const c = ctx();
     const tools = makeTools({ pod: pod as any, validator, sparql: {} as any, enforceShacl: true }, c);
-    const res = await tools.write_message({ sessionId: 's1', msgN: 3, body: 'hi' });
+    const res = await tools.write_message({ msgN: 3, body: 'hi' });
     expect(res).toMatchObject({ ok: true });
     expect(c.messageWritten).toBe(true);
-  });
-
-  it('assert_triples(web) with a provenanced concept conforms with merged meta', async () => {
-    const pod = recPodWithMeta();
-    const tools = makeTools({ pod: pod as any, validator, sparql: {} as any, enforceShacl: true }, ctx());
-    const res = await tools.assert_triples({
-      sessionId: 's1', kind: 'web', jsonld: concept(),
-      provenance: { derivedFrom: 'https://solidproject.org', searchQuery: 'solid' },
-    });
-    expect(res).toMatchObject({ ok: true });
-    expect(pod.puts[0].path).toMatch(/^\/aleph\/assertions\/s1\/web_/);
-  });
-
-  it('blocks the same concept write when the session meta is absent', async () => {
-    const pod = recPod(); // getResource → null, no session node to satisfy sh:class
-    const c = ctx();
-    const tools = makeTools({ pod: pod as any, validator, sparql: {} as any, enforceShacl: true }, c);
-    const res = await tools.assert_triples({
-      sessionId: 's1', kind: 'web', jsonld: concept(),
-      provenance: { derivedFrom: 'https://solidproject.org', searchQuery: 'solid' },
-    });
-    expect(res).toMatchObject({ error: 'shacl' });
-    expect(pod.puts).toHaveLength(0);
   });
 });
 

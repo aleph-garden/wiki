@@ -11,20 +11,22 @@ function stubPod(list: Record<string, string[]>, bodies: Record<string, string>)
     async getResource(p: string) { return bodies[p] ?? null; },
   };
 }
-const userMsg = (n: number) =>
-  JSON.stringify({ '@graph': [{ '@type': 'ChatMessage', position: n, speaker: 'user' }] });
+// Bodies arrive as Turtle (getResource → Accept: text/turtle + JSS --conneg).
+const V = '@prefix v: <https://vocab.aleph.wiki/> .\n';
+const msg = (n: number, speaker: string) =>
+  `${V}<https://aleph.wiki/g/msg${n}> a v:ChatMessage ; v:position ${n} ; v:speaker "${speaker}" .`;
 
 describe('drainUnanswered', () => {
   it('enqueues one run per unanswered session', async () => {
     const pod = stubPod(
       {
         '/aleph/sessions/': [`${BASE}/aleph/sessions/s1/`, `${BASE}/aleph/sessions/s2/`],
-        '/aleph/sessions/s1/': ['msg1.jsonld'],
-        '/aleph/sessions/s2/': ['msg1.jsonld'],
+        '/aleph/sessions/s1/': ['msg1.ttl'],
+        '/aleph/sessions/s2/': ['msg1.ttl'],
       },
       {
-        '/aleph/sessions/s1/msg1.jsonld': userMsg(1),
-        '/aleph/sessions/s2/msg1.jsonld': userMsg(1),
+        '/aleph/sessions/s1/msg1.ttl': msg(1, 'user'),
+        '/aleph/sessions/s2/msg1.ttl': msg(1, 'user'),
       },
     );
     const enqueued: string[] = [];
@@ -34,10 +36,9 @@ describe('drainUnanswered', () => {
 
   it('skips sessions whose latest msg is answered', async () => {
     const pod = stubPod(
-      { '/aleph/sessions/': [`${BASE}/aleph/sessions/s1/`], '/aleph/sessions/s1/': ['msg1.jsonld', 'msg2.jsonld'] },
+      { '/aleph/sessions/': [`${BASE}/aleph/sessions/s1/`], '/aleph/sessions/s1/': ['msg1.ttl', 'msg2.ttl'] },
       {
-        '/aleph/sessions/s1/msg2.jsonld':
-          JSON.stringify({ '@graph': [{ '@type': 'ChatMessage', position: 2, speaker: 'agent' }] }),
+        '/aleph/sessions/s1/msg2.ttl': msg(2, 'agent'),
       },
     );
     const enqueued: string[] = [];

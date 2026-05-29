@@ -2,6 +2,7 @@ import init, { Store, type Term } from 'oxigraph/web.js';
 import { ref } from 'vue';
 import { PodClient } from './pod';
 import { getPodBase } from './pod-config';
+import { conceptContainers } from './typeindex';
 
 export type PodStatus = 'connecting' | 'online' | 'offline' | 'reconnecting';
 export const podStatus = ref<PodStatus>('connecting');
@@ -86,6 +87,9 @@ export function initStore(): Promise<Store> {
     const p = getPod();
     try {
       await loadContainer(s, p, POD_ROOT);
+      for (const c of await conceptContainers(p)) {
+        if (!c.startsWith(POD_ROOT)) await loadContainer(s, p, c);
+      }
       podStatus.value = 'online';
     } catch (err) {
       console.warn('pod load failed:', err);

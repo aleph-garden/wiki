@@ -13,11 +13,14 @@ export const INLINE_CONTEXT: Record<string, unknown> = {
   g: 'https://aleph.wiki/g/',
   ChatMessage: 'aleph:ChatMessage',
   Concept: 'aleph:Concept',
+  Person: 'aleph:Person',
+  Event: 'aleph:Event',
   Edit: 'aleph:Edit',
   WebSearchAssertion: 'aleph:WebSearchAssertion',
   SparqlAssertion: 'aleph:SparqlAssertion',
   ImaginedAssertion: 'aleph:ImaginedAssertion',
   position: { '@id': 'aleph:position', '@type': 'xsd:integer' },
+  turn: { '@id': 'aleph:turn', '@type': 'xsd:integer' },
   speaker: { '@id': 'aleph:speaker' },
   body: { '@id': 'aleph:body' },
   editKind: { '@id': 'aleph:editKind' },
@@ -26,11 +29,38 @@ export const INLINE_CONTEXT: Record<string, unknown> = {
   query: { '@id': 'aleph:query' },
   endpoints: { '@id': 'aleph:endpoints' },
   prefLabel: { '@id': 'skos:prefLabel', '@container': '@language' },
+  altLabel: { '@id': 'skos:altLabel', '@container': '@language' },
+  definition: { '@id': 'skos:definition', '@container': '@language' },
   broader: { '@id': 'skos:broader', '@type': '@id' },
   related: { '@id': 'skos:related', '@type': '@id' },
   wasGeneratedBy: { '@id': 'prov:wasGeneratedBy', '@type': '@id' },
   generatedAtTime: { '@id': 'prov:generatedAtTime', '@type': 'xsd:dateTime' },
 };
+
+import jsonld from 'jsonld';
+import { slugify } from './slug';
+import { Parser, Writer } from 'n3';
+
+/**
+ * Serialize an inline-context JSON-LD doc to Turtle, in-process.
+ *
+ * JSS stores .jsonld opaquely and serves an empty graph under conneg, so the
+ * UI (which ingests Turtle) never sees JSON-LD replies. We expand here with the
+ * embedded context — no relative ./context.jsonld dereference — and write
+ * Turtle with full URIs, which JSS round-trips correctly. `base` resolves any
+ * empty `@id: ""` (e.g. the Edit/assertion header) to the document's own URL.
+ */
+export async function toTurtle(validationDoc: Record<string, unknown>, base: string): Promise<string> {
+  const nquads = (await jsonld.toRDF(validationDoc as any, {
+    format: 'application/n-quads', base,
+  })) as unknown as string;
+  const quads = new Parser({ format: 'application/n-quads' }).parse(nquads);
+  return await new Promise<string>((resolve, reject) => {
+    const writer = new Writer();
+    writer.addQuads(quads);
+    writer.end((err, result) => (err ? reject(err) : resolve(result)));
+  });
+}
 
 export interface ReplyInput {
   sessionId: string;
@@ -40,16 +70,10 @@ export interface ReplyInput {
 }
 
 export interface BuiltDoc {
-  /** Inline-context JSON-LD for SHACL validation. */
+  /** Inline-context JSON-LD for SHACL validation and Turtle serialization. */
   validationDoc: Record<string, unknown>;
-  /** Serialized JSON-LD for PUT, using the relative ./context.jsonld. */
-  podBody: string;
-  /** Pod path to PUT to. */
+  /** Pod path to PUT to (Turtle). */
   path: string;
-}
-
-function podSerialize(graph: unknown[]): string {
-  return JSON.stringify({ '@context': './context.jsonld', '@graph': graph });
 }
 
 export function buildReplyDoc(input: ReplyInput): BuiltDoc {
@@ -75,8 +99,7 @@ export function buildReplyDoc(input: ReplyInput): BuiltDoc {
   ];
   return {
     validationDoc: { '@context': INLINE_CONTEXT, '@graph': graph },
-    podBody: podSerialize(graph),
-    path: `/aleph/sessions/${sessionId}/msg${next}.jsonld`,
+    path: `/aleph/sessions/${sessionId}/msg${next}.ttl`,
   };
 }
 
@@ -89,29 +112,36 @@ export interface AssertionProvenance {
   endpoints?: string[];
 }
 
-export interface AssertionInput {
-  sessionId: string;
-  msgN: number;
-  kind: AssertionKind;
-  now: string;
-  ts: string;
-  jsonld: { '@graph'?: unknown[] };
-  provenance: AssertionProvenance;
-}
-
 const KIND_TYPE: Record<AssertionKind, string> = {
   web: 'WebSearchAssertion',
   sparql: 'SparqlAssertion',
   imagined: 'ImaginedAssertion',
 };
 
-export function buildAssertionDoc(input: AssertionInput): BuiltDoc {
-  const { sessionId, msgN, kind, now, ts, jsonld, provenance } = input;
+export interface ClaimConcept {
+  '@type': 'Concept' | 'Person' | 'Event';
+  prefLabel: Record<string, string>;
+  [key: string]: unknown; // definition, broader, related, … (context-mapped)
+}
+
+export interface ClaimInput {
+  sessionId: string;
+  ts: string;
+  kind: AssertionKind;
+  now: string;
+  turn: number;
+  concepts: ClaimConcept[];
+  provenance: AssertionProvenance;
+}
+
+export function buildClaimDoc(input: ClaimInput): BuiltDoc {
+  const { sessionId, ts, kind, now, turn, concepts, provenance } = input;
   const header: Record<string, unknown> = {
     '@id': '',
     '@type': KIND_TYPE[kind],
-    wasGeneratedBy: `g:${sessionId}_turn${msgN}`,
+    wasGeneratedBy: `g:${sessionId}`,
     generatedAtTime: now,
+    turn,
   };
   if (kind === 'web') {
     if (provenance.derivedFrom) header.derivedFrom = provenance.derivedFrom;
@@ -120,10 +150,15 @@ export function buildAssertionDoc(input: AssertionInput): BuiltDoc {
     if (provenance.query) header.query = provenance.query;
     if (provenance.endpoints) header.endpoints = provenance.endpoints;
   }
-  const graph = [header, ...(jsonld['@graph'] ?? [])];
+  // Mint a session-scoped relative IRI per concept from its prefLabel.
+  const graph = concepts.map((c) => {
+    const label = c.prefLabel?.en ?? Object.values(c.prefLabel ?? {})[0] ?? '';
+    const slug = slugify(label);
+    return { ...c, '@id': `g/${slug}`, wasGeneratedBy: `g:${sessionId}`, generatedAtTime: now };
+  });
   return {
-    validationDoc: { '@context': INLINE_CONTEXT, '@graph': graph },
-    podBody: podSerialize(graph),
-    path: `/aleph/assertions/${sessionId}/${kind}_${ts}.jsonld`,
+    validationDoc: { '@context': INLINE_CONTEXT, '@graph': [header, ...graph] },
+    path: `/aleph/sessions/${sessionId}/claim_${ts}.ttl`,
   };
 }
+
