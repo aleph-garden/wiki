@@ -143,7 +143,7 @@ export function createAlephServer(deps: ToolDeps, ctx: RunContext) {
       tool('assert_claim', 'Persist a claim (typed concepts + provenance) as a named graph in the current session.',
         {
           kind: z.enum(['web', 'sparql', 'imagined']),
-          concepts: z.array(z.object({ '@type': z.enum(['Concept', 'Person', 'Event']), prefLabel: z.record(z.string()) }).passthrough()),
+          concepts: z.array(z.object({ '@type': z.enum(['Concept', 'Person', 'Event']), prefLabel: z.record(z.string(), z.string()) }).passthrough()),
           provenance: z.object({
             derivedFrom: z.string().optional(),
             searchQuery: z.string().optional(),
