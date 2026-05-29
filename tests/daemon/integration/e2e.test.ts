@@ -30,26 +30,26 @@ function deps(pod: ReturnType<typeof memPod>): DaemonDeps {
 }
 
 describe('e2e: realistic tool sequence', () => {
-  it('writes a SHACL-valid reply and a web assertion', async () => {
+  it('writes a SHACL-valid reply and a web claim', async () => {
     const pod = memPod();
     const mockQuery = async function* (_a: unknown, hooks: { tools: any }) {
       await hooks.tools.read_pod({ path: '/aleph/sessions/s_abc/msg1.jsonld' });
-      const a = await hooks.tools.assert_triples({
-        sessionId: 's_abc', kind: 'web',
-        jsonld: { '@graph': [{ '@id': 'g:Solid', '@type': 'Concept', prefLabel: { en: 'Solid' } }] },
+      const a = await hooks.tools.assert_claim({
+        kind: 'web',
+        concepts: [{ '@type': 'Concept', prefLabel: { en: 'Solid' } }],
         provenance: { derivedFrom: 'https://solidproject.org', searchQuery: 'what is solid' },
       });
       expect(a).toMatchObject({ ok: true });
       const w = await hooks.tools.write_message({
-        sessionId: 's_abc', msgN: 1, body: 'Solid ist eine Spezifikation für dezentrale Daten.',
+        msgN: 1, body: 'Solid ist eine Spezifikation für dezentrale Daten.',
       });
       expect(w).toMatchObject({ ok: true });
       yield { type: 'result', subtype: 'success' };
     };
     await runAgent({ sessionId: 's_abc', msgN: 1 }, deps(pod), mockQuery as any);
 
-    expect(pod.store.has('/aleph/sessions/s_abc/msg2.ttl')).toBe(true);
-    const assertionKey = [...pod.store.keys()].find((k) => k.startsWith('/aleph/assertions/s_abc/web_'));
-    expect(assertionKey).toBeDefined();
+    expect(pod.store.has('/aleph.wiki/sessions/s_abc/msg2.ttl')).toBe(true);
+    const claimKey = [...pod.store.keys()].find((k) => k.startsWith('/aleph.wiki/sessions/s_abc/claim_'));
+    expect(claimKey).toBeDefined();
   });
 });

@@ -12,8 +12,8 @@ function summarizeTool(name: string, input: any): string {
   switch (short) {
     case 'read_pod': return `read_pod ${input.path}`;
     case 'sparql_query': return `sparql_query "${String(input.query ?? '').replace(/\s+/g, ' ').slice(0, 70)}…"`;
-    case 'write_message': return `write_message ${input.sessionId} msg${input.msgN} (${String(input.body ?? '').length} chars)`;
-    case 'assert_triples': return `assert_triples ${input.kind}`;
+    case 'write_message': return `write_message msg${input.msgN} (${String(input.body ?? '').length} chars)`;
+    case 'assert_claim': return `assert_claim ${input.kind}`;
     case 'WebSearch': return `WebSearch "${input.query ?? ''}"`;
     case 'WebFetch': return `WebFetch ${input.url ?? ''}`;
     default: return short;
@@ -85,9 +85,7 @@ export async function runAgent(
   const secs = ((Date.now() - started) / 1000).toFixed(1);
   if (!ctx.messageWritten) {
     console.warn(`[runner] no write_message for ${trigger.sessionId} → fallback (${toolCalls} tool calls, ${secs}s)`);
-    await tools.write_message({
-      sessionId: trigger.sessionId, msgN: trigger.msgN, body: FALLBACK_BODY,
-    });
+    await tools.write_message({ msgN: trigger.msgN, body: FALLBACK_BODY });
   } else {
     console.log(`[runner] ■ ${trigger.sessionId}: done (${toolCalls} tool calls, ${secs}s)`);
   }

@@ -94,7 +94,7 @@ export function buildReplyDoc(input: ReplyInput): BuiltDoc {
   ];
   return {
     validationDoc: { '@context': INLINE_CONTEXT, '@graph': graph },
-    path: `/aleph/sessions/${sessionId}/msg${next}.ttl`,
+    path: `/aleph.wiki/sessions/${sessionId}/msg${next}.ttl`,
   };
 }
 
@@ -105,16 +105,6 @@ export interface AssertionProvenance {
   searchQuery?: string;
   query?: string;
   endpoints?: string[];
-}
-
-export interface AssertionInput {
-  sessionId: string;
-  msgN: number;
-  kind: AssertionKind;
-  now: string;
-  ts: string;
-  jsonld: { '@graph'?: unknown[] };
-  provenance: AssertionProvenance;
 }
 
 const KIND_TYPE: Record<AssertionKind, string> = {
@@ -165,24 +155,3 @@ export function buildClaimDoc(input: ClaimInput): BuiltDoc {
   };
 }
 
-export function buildAssertionDoc(input: AssertionInput): BuiltDoc {
-  const { sessionId, msgN, kind, now, ts, jsonld, provenance } = input;
-  const header: Record<string, unknown> = {
-    '@id': '',
-    '@type': KIND_TYPE[kind],
-    wasGeneratedBy: `g:${sessionId}_turn${msgN}`,
-    generatedAtTime: now,
-  };
-  if (kind === 'web') {
-    if (provenance.derivedFrom) header.derivedFrom = provenance.derivedFrom;
-    if (provenance.searchQuery) header.searchQuery = provenance.searchQuery;
-  } else if (kind === 'sparql') {
-    if (provenance.query) header.query = provenance.query;
-    if (provenance.endpoints) header.endpoints = provenance.endpoints;
-  }
-  const graph = [header, ...(jsonld['@graph'] ?? [])];
-  return {
-    validationDoc: { '@context': INLINE_CONTEXT, '@graph': graph },
-    path: `/aleph/assertions/${sessionId}/${kind}_${ts}.ttl`,
-  };
-}

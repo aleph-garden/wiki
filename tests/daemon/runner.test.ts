@@ -34,7 +34,7 @@ describe('runAgent', () => {
     };
     await runAgent({ sessionId: 's1', msgN: 3 }, deps(pod), fakeQuery as any);
     expect(pod.puts).toHaveLength(1);
-    expect(pod.puts[0].path).toBe('/aleph/sessions/s1/msg4.ttl');
+    expect(pod.puts[0].path).toBe('/aleph.wiki/sessions/s1/msg4.ttl');
     expect(pod.puts[0].body).toMatch(/konnte keine Antwort/i);
   });
 
@@ -42,11 +42,11 @@ describe('runAgent', () => {
     const pod = recPod();
     // The mock drives the run context's write_message via the exposed tools.
     const fakeQuery = async function* (_args: unknown, hooks: { tools: any }) {
-      await hooks.tools.write_message({ sessionId: 's1', msgN: 3, body: 'real reply' });
+      await hooks.tools.write_message({ msgN: 3, body: 'real reply' });
       yield { type: 'result', subtype: 'success' };
     };
     await runAgent({ sessionId: 's1', msgN: 3 }, deps(pod), fakeQuery as any);
-    const replies = pod.puts.filter((p) => p.path === '/aleph/sessions/s1/msg4.ttl');
+    const replies = pod.puts.filter((p) => p.path === '/aleph.wiki/sessions/s1/msg4.ttl');
     expect(replies).toHaveLength(1);
     expect(replies[0].body).toMatch(/real reply/);
   });

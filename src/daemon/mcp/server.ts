@@ -4,7 +4,7 @@ import type { PodClient } from '../../lib/pod';
 import type { ShaclValidator } from '../shacl';
 import type { SparqlEngine } from './sparql';
 import type { RunContext } from '../types';
-import { buildReplyDoc, buildAssertionDoc, toTurtle, type AssertionKind } from '../templates';
+import { buildReplyDoc, buildClaimDoc, toTurtle, type AssertionKind } from '../templates';
 
 export interface ToolDeps {
   pod: PodClient;
@@ -67,13 +67,13 @@ export function makeTools(deps: ToolDeps, ctx: RunContext) {
     return result;
   }
 
-  async function write_message(input: { sessionId: string; msgN: number; body: string }) {
+  async function write_message(input: { msgN: number; body: string }) {
     const built = buildReplyDoc({
-      sessionId: input.sessionId, msgN: input.msgN, body: input.body, now: nowIso(),
+      sessionId: ctx.sessionId, msgN: input.msgN, body: input.body, now: nowIso(),
     });
     const report = await validator.validateJsonLd(built.validationDoc, {
       documentUrl: docUrl(built.path),
-      contextTurtle: await sessionMeta(input.sessionId),
+      contextTurtle: await sessionMeta(ctx.sessionId),
     });
     if (!report.conforms) {
       if (enforceShacl) return { error: 'shacl' as const, report: report.results };
@@ -97,37 +97,30 @@ export function makeTools(deps: ToolDeps, ctx: RunContext) {
     return { ok: true as const, path: built.path };
   }
 
-  async function assert_triples(input: {
-    sessionId: string;
+  async function assert_claim(input: {
     kind: AssertionKind;
-    jsonld: { '@graph'?: unknown[] };
+    concepts: { '@type': 'Concept' | 'Person' | 'Event'; prefLabel: Record<string, string>; [k: string]: unknown }[];
     provenance: { derivedFrom?: string; searchQuery?: string; query?: string; endpoints?: string[] };
   }) {
-    if (enforceShacl && (ctx.shaclFailures.get(input.kind) ?? 0) >= MAX_SHACL_FAILURES) {
-      return { error: 'persistent' as const, kind: input.kind };
-    }
-    const built = buildAssertionDoc({
-      sessionId: input.sessionId, msgN: ctx.msgN, kind: input.kind,
-      now: nowIso(), ts: fileTs(), jsonld: input.jsonld, provenance: input.provenance,
+    const built = buildClaimDoc({
+      sessionId: ctx.sessionId, ts: fileTs(), kind: input.kind, now: nowIso(),
+      concepts: input.concepts, provenance: input.provenance,
     });
     const report = await validator.validateJsonLd(built.validationDoc, {
       documentUrl: docUrl(built.path),
-      contextTurtle: await sessionMeta(input.sessionId),
+      contextTurtle: await sessionMeta(ctx.sessionId),
     });
     if (!report.conforms) {
-      if (enforceShacl) {
-        ctx.shaclFailures.set(input.kind, (ctx.shaclFailures.get(input.kind) ?? 0) + 1);
-        return { error: 'shacl' as const, report: report.results };
-      }
+      if (enforceShacl) return { error: 'shacl' as const, report: report.results };
       console.warn(`[mcp] SHACL advisory (not blocking) on ${built.path}: ${report.results.join('; ')}`);
     }
     const podBody = await toTurtle(built.validationDoc, docUrl(built.path));
     await pod.putResource(built.path, podBody, { contentType: 'text/turtle' });
-    console.log(`[mcp] assert_triples ${input.kind} → ${built.path}`);
+    console.log(`[mcp] assert_claim ${input.kind} → ${built.path}`);
     return { ok: true as const, path: built.path };
   }
 
-  return { read_pod, sparql_query, write_message, assert_triples };
+  return { read_pod, sparql_query, write_message, assert_claim };
 }
 
 /** Wrap the bare handlers as an in-process SDK MCP server named "aleph". */
@@ -146,13 +139,12 @@ export function createAlephServer(deps: ToolDeps, ctx: RunContext) {
         { query: z.string(), sources: z.array(z.string()).optional() },
         async (i) => txt(await t.sparql_query(i))),
       tool('write_message', 'Write the agent reply as the next chat message (SHACL-validated).',
-        { sessionId: z.string(), msgN: z.number(), body: z.string() },
+        { msgN: z.number(), body: z.string() },
         async (i) => txt(await t.write_message(i))),
-      tool('assert_triples', 'Persist provenance-tagged triples as an assertion file (SHACL-validated).',
+      tool('assert_claim', 'Persist a claim (typed concepts + provenance) as a named graph in the current session.',
         {
-          sessionId: z.string(),
           kind: z.enum(['web', 'sparql', 'imagined']),
-          jsonld: z.object({ '@graph': z.array(z.any()).optional() }).passthrough(),
+          concepts: z.array(z.object({ '@type': z.enum(['Concept', 'Person', 'Event']), prefLabel: z.record(z.string()) }).passthrough()),
           provenance: z.object({
             derivedFrom: z.string().optional(),
             searchQuery: z.string().optional(),
@@ -160,7 +152,7 @@ export function createAlephServer(deps: ToolDeps, ctx: RunContext) {
             endpoints: z.array(z.string()).optional(),
           }),
         },
-        async (i) => txt(await t.assert_triples(i as any))),
+        async (i) => txt(await t.assert_claim(i as any))),
     ],
   });
   return { server, tools: t };
