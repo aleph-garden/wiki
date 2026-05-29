@@ -47,11 +47,15 @@ Strategie, Discovery, Slug/Dedup und den Canonicalization-Gate fest.
 6. **Lesbare Slugs + Pflicht-Lookup.** `<slug>` = PascalCase aus `prefLabel`.
    Vor dem Minten Pflicht: existierendes Concept per Label suchen → Treffer
    wiederverwenden, sonst neu.
-7. **Canonicalization-Gate (Bless).** Der Agent schreibt **nie direkt nach
-   `/g/`**. Er produziert Vorschläge in der Session (Draft). Erst beim
-   ausdrücklichen Absegnen werden kanonische Triples aus der Session-Historie
-   (inkl. User-Änderungen) nach `/g/` gemintet. „Git für Wissen": Session =
-   Working-Draft, `/g/` = kanonisch, Bless = Commit.
+7. **Canonicalization-Gate (Bless) — erzwungen, nicht per Policy.** Der Agent
+   kann ausschließlich in den **aktuellen Session-Container** schreiben; das ist
+   eine **Capability-Grenze im Daemon**, kein Prompt-Versprechen: die MCP-
+   Schreib-Tools leiten den Ziel-Container aus der gebundenen Session des Runs ab
+   (nicht aus Agent-Parametern) und lehnen alles außerhalb ab. `/g/` wird
+   **allein vom Bless-Code-Pfad** geschrieben (kein Agent). Erst beim
+   ausdrücklichen Absegnen werden kanonische Triples aus der Session (inkl.
+   User-Änderungen/Invalidierungen) nach `/g/` gemintet. „Git für Wissen":
+   Session = Working-Draft, `/g/` = kanonisch, Bless = Commit.
 8. **Agent referenziert Bestehendes.** Während der Session sucht der Agent immer
    zuerst existierende kanonische Concepts (TypeIndex-aufgelöst, irgendwo im
    Pod) und referenziert sie per IRI; neu vorschlagen nur, wenn nichts passt.
@@ -197,8 +201,12 @@ Die Session ist der Branch, `/g/` der Main, Bless der Commit.
 - Liest überall im Pod (TypeIndex-aufgelöst), nicht nur `/g/`.
 - Referenziert existierende kanonische Concepts per IRI; schlägt Neues nur vor,
   wenn nichts passt.
-- Schreibt Vorschläge in den Session-Draft, nie nach `/g/`.
-- Schreibt schlanke Provenance-Records in den Session-Container.
+- **Schreibt ausschließlich in den aktuellen Session-Container** — vom Daemon
+  erzwungen (Ziel-Container aus der gebundenen Run-Session, nicht aus Agent-
+  Parametern; `sessionId` ist kein vom Agent wählbarer Tool-Parameter mehr).
+  Keine Capability, nach `/g/` oder in fremde Sessions zu schreiben.
+- Claims (inkl. Provenance-Knoten) als Named-Graph-Ressourcen im Session-
+  Container.
 
 ## aleph.wiki — Domain-Rollen
 
