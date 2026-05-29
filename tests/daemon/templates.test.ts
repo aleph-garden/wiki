@@ -49,7 +49,7 @@ describe('buildReplyDoc', () => {
 describe('buildClaimDoc', () => {
   it('expands Person type and definition/altLabel to canonical vocab URIs', async () => {
     const built = buildClaimDoc({
-      sessionId: '260529-001', ts: 't', kind: 'imagined', now: '2026-05-29T10:00:00Z',
+      sessionId: '260529-001', ts: 't', kind: 'imagined', now: '2026-05-29T10:00:00Z', turn: 1,
       concepts: [{ '@type': 'Person', prefLabel: { en: 'Alan Turing' },
                    definition: { en: 'Mathematician.' }, altLabel: { en: 'Turing' } }],
       provenance: {},
@@ -66,7 +66,7 @@ describe('buildClaimDoc', () => {
   it('targets the session container as .ttl and mints concept @id from prefLabel', async () => {
     const built = buildClaimDoc({
       sessionId: '260529-001', ts: '20260529T100000', kind: 'imagined',
-      now: '2026-05-29T10:00:00Z',
+      now: '2026-05-29T10:00:00Z', turn: 1,
       concepts: [{ '@type': 'Concept', prefLabel: { en: 'Game Theory' },
                    definition: { en: 'Study of strategic interaction.' } }],
       provenance: {},
@@ -82,5 +82,20 @@ describe('buildClaimDoc', () => {
     expect(qs.some((q) => q.subject.value === conceptIri && q.predicate.value === RDF_TYPE && q.object.value === `${V}Concept`)).toBe(true);
     // the claim/provenance node is the document itself (@id "")
     expect(qs.some((q) => q.subject.value === base && q.predicate.value === RDF_TYPE && q.object.value === `${V}ImaginedAssertion`)).toBe(true);
+  });
+
+  it('stamps the claim header with the turn', async () => {
+    const built = buildClaimDoc({
+      sessionId: '260529-001', ts: 't', kind: 'imagined', now: '2026-05-29T10:00:00Z',
+      turn: 3, concepts: [{ '@type': 'Concept', prefLabel: { en: 'X' } }], provenance: {},
+    });
+    const header = (built.validationDoc['@graph'] as any[])[0];
+    expect(header.turn).toBe(3);
+    const base = `http://localhost:3000${built.path}`;
+    const { Parser } = await import('n3');
+    const qs = new Parser().parse(await toTurtle(built.validationDoc, base));
+    expect(qs.some((q) => q.subject.value === base
+      && q.predicate.value === 'https://vocab.aleph.wiki/turn'
+      && q.object.value === '3')).toBe(true);
   });
 });

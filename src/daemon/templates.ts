@@ -20,6 +20,7 @@ export const INLINE_CONTEXT: Record<string, unknown> = {
   SparqlAssertion: 'aleph:SparqlAssertion',
   ImaginedAssertion: 'aleph:ImaginedAssertion',
   position: { '@id': 'aleph:position', '@type': 'xsd:integer' },
+  turn: { '@id': 'aleph:turn', '@type': 'xsd:integer' },
   speaker: { '@id': 'aleph:speaker' },
   body: { '@id': 'aleph:body' },
   editKind: { '@id': 'aleph:editKind' },
@@ -128,17 +129,19 @@ export interface ClaimInput {
   ts: string;
   kind: AssertionKind;
   now: string;
+  turn: number;
   concepts: ClaimConcept[];
   provenance: AssertionProvenance;
 }
 
 export function buildClaimDoc(input: ClaimInput): BuiltDoc {
-  const { sessionId, ts, kind, now, concepts, provenance } = input;
+  const { sessionId, ts, kind, now, turn, concepts, provenance } = input;
   const header: Record<string, unknown> = {
     '@id': '',
     '@type': KIND_TYPE[kind],
     wasGeneratedBy: `g:${sessionId}`,
     generatedAtTime: now,
+    turn,
   };
   if (kind === 'web') {
     if (provenance.derivedFrom) header.derivedFrom = provenance.derivedFrom;

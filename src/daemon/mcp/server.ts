@@ -102,7 +102,7 @@ export function makeTools(deps: ToolDeps, ctx: RunContext) {
   }) {
     const built = buildClaimDoc({
       sessionId: ctx.sessionId, ts: fileTs(), kind: input.kind, now: nowIso(),
-      concepts: input.concepts, provenance: input.provenance,
+      turn: ctx.msgN, concepts: input.concepts, provenance: input.provenance,
     });
     const report = await validator.validateJsonLd(built.validationDoc, {
       documentUrl: docUrl(built.path),
