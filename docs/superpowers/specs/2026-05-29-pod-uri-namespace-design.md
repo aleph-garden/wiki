@@ -91,9 +91,9 @@ Standard-Vokabular (`schema:`, `skos:`, `foaf:`, `prov:`) verwenden, eigene
         meta.ttl                       #   AlephSession-Knoten, Teilnehmer, Zeiten
         msg1.ttl                       #   Chat-Messages
         msg2.ttl
-        draft.ttl                      #   vorgeschlagene (noch nicht kanonische) Triples
-        assertion_<ts>.ttl             #   schlanke Provenance → zeigt auf kanonische
-                                       #   IRIs (wo auch immer) und/oder Session-Triples
+        claim_01.ttl                   #   ein Claim = ein Named Graph: Wissens-Triples
+        claim_02.ttl                   #   + Provenance-Knoten; einzeln invalidierbar
+        ...                            #   Bless = Union aller nicht-invalidierten Claims
   settings/
     publicTypeIndex.ttl                # rdf:type → Container-Registrierungen
 ```
@@ -167,24 +167,30 @@ Die Session ist der Branch, `/g/` der Main, Bless der Commit.
       vorigen Stand; optional `aleph:Snapshot` je Bless.
 3. **Der Agent schreibt nie direkt nach `/g/`** — nur Vorschläge in die Session.
 
-### Session-interne Struktur (Draft)
+### Session-interne Struktur
 
-- Der Agent materialisiert strukturierte Vorschläge **live** im Session-Draft
-  (kein reines Konversations-Modell) — du siehst den Graphen wachsen und kannst
-  Triples korrigieren.
-- **Session-lokale Hash-IRIs:** Draft-Entitäten/Claims sind relativ zum Session-
-  Dokument, z.B. `<#c1>`, `<#claim3>` → portabel (Entscheidung 2). Referenzen
-  *innerhalb* der Session sind damit triviale Hash-IRIs; Referenzen auf
-  **Bestehendes** zeigen auf dessen kanonische IRI (TypeIndex-aufgelöst, wo auch
-  immer).
-- **Provenance auf Knoten-/Claim-Ebene, kein RDF-Star/keine Reifizierung.** Ein
-  Claim ist ein referenzierbarer Knoten (`<#a1> a aleph:WebSearchAssertion ;
-  aleph:derivedFrom <url> ; prov:wasDerivedFrom <#c1>`), nicht ein einzelnes
-  reifiziertes Triple. Provenance kann auf andere Session-Knoten *und* auf
-  kanonische IRIs zeigen.
-- **Promotion beim Bless:** jede Draft-Entität → Slug-Lookup → kanonische IRI
-  (TypeIndex-Ziel, Default `/g/`); Daten promoten; Hash-IRI-Referenzen
-  umschreiben bzw. per `owl:sameAs` verknüpfen; Provenance mit-übernehmen.
+- **Kein separates Draft-File.** Der **Union-Graph des Session-Containers** ist
+  der Arbeitsstand; das Session-Ergebnis = dieser Union **minus invalidierter
+  Claims**. Der Agent materialisiert Vorschläge live (kein reines Konversations-
+  Modell) — du siehst den Graphen wachsen und kannst eingreifen.
+- **Ein Claim = eine Ressource (Named Graph).** Solid gibt Graph-pro-Ressource
+  gratis (jede Ressource ist durch ihre URL benannt). Jeder Claim ist
+  selbstbeschreibend: Provenance-Knoten + die Wissens-Triples, die er einführt.
+- **Ausschluss = Claim invalidieren** — am Claim-/Graph-Knoten, **kein RDF-Star**
+  (`<#a> a aleph:ImaginedAssertion ; prov:wasGeneratedBy <../> ;
+  prov:wasInvalidatedBy <#review>`). Bless überspringt invalidierte Claims.
+  Feiner ausschließen: Claim verwerfen und einen kleineren Named Graph neu
+  anlegen. (Per-Einzeltriple bräuchte Reifizierung — bewusst draußen.)
+- **Session-IRIs für Entitäten.** Über mehrere Claims referenzierte Entitäten
+  bekommen **session-scoped IRIs** (relativ zum Session-Container), nicht per-Doc-
+  Hash-IRIs (die gelten nur innerhalb *einer* Ressource). Referenzen auf
+  **Bestehendes** zeigen auf dessen kanonische IRI (TypeIndex-aufgelöst, überall).
+  Provenance bleibt Knoten-/Claim-Ebene und kann auf andere Session-Entitäten/
+  Claims *oder* kanonische IRIs zeigen.
+- **Bless:** Union der nicht-invalidierten Claim-Graphen → Slug-Lookup/Dedup →
+  Promotion an die kanonische IRI (TypeIndex-Ziel, Default `/g/`); Session-IRIs
+  auf kanonische umschreiben bzw. per `owl:sameAs` verknüpfen; Provenance +
+  `prov:wasGeneratedBy <session>` mit-übernehmen.
 
 ## Agent-Verhalten (Zusammenfassung)
 
