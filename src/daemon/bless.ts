@@ -1,7 +1,13 @@
-import { Parser, type Quad } from 'n3';
+import { Parser, Writer, DataFactory, type Quad } from 'n3';
 import type { PodClient } from '../lib/pod';
+import { findCanonicalByLabel } from './lookup';
+import { resolveContainers } from '../lib/typeindex';
 
 const PROV = 'http://www.w3.org/ns/prov#';
+const SKOS = 'http://www.w3.org/2004/02/skos/core#';
+const V = 'https://vocab.aleph.wiki/';
+
+const { namedNode, quad: mkQuad } = DataFactory;
 
 export type PodLike = Pick<PodClient, 'baseUrl' | 'getResource' | 'listContainer' | 'putResource'>;
 
@@ -24,4 +30,75 @@ export async function gatherClaims(pod: PodLike, sessionId: string): Promise<Qua
     out.push(...quads);
   }
   return out;
+}
+
+function writeTurtle(quads: Quad[]): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const w = new Writer();
+    w.addQuads(quads);
+    w.end((e, r) => (e ? reject(e) : resolve(r)));
+  });
+}
+
+function dedupeQuads(quads: Quad[]): Quad[] {
+  const seen = new Set<string>();
+  return quads.filter((q) => {
+    const k = `${q.subject.value}|${q.predicate.value}|${q.object.value}|${q.object.termType}`;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+}
+
+type Term = Quad['subject'] | Quad['object'];
+
+/** Promote non-invalidated session claims into canonical `/g/` resources. */
+export async function blessSession(pod: PodLike, sessionId: string): Promise<{ promoted: string[] }> {
+  const dir = sessionDir(sessionId);
+  const sessionPrefix = `${pod.baseUrl}${dir}g/`;
+  const quads = await gatherClaims(pod, sessionId);
+
+  const entities = [...new Set(
+    quads.filter((q) => q.subject.value.startsWith(sessionPrefix)).map((q) => q.subject.value),
+  )];
+
+  const remap = new Map<string, string>();
+  for (const iri of entities) {
+    const slug = iri.slice(sessionPrefix.length);
+    if (!slug) { console.warn(`[bless] empty slug for ${iri} — skipped`); continue; }
+    const label = quads.find(
+      (q) => q.subject.value === iri && q.predicate.value === `${SKOS}prefLabel`,
+    )?.object.value;
+    const existing = label ? await findCanonicalByLabel(pod, label) : null;
+    if (existing) { remap.set(iri, existing); continue; }
+    const container = (await resolveContainers(pod, `${V}Concept`))[0].replace(/\/$/, '');
+    remap.set(iri, `${pod.baseUrl}${container}/${slug}`);
+  }
+
+  const remapTerm = (t: Term): Term =>
+    t.termType === 'NamedNode' && remap.has(t.value) ? namedNode(remap.get(t.value)!) : t;
+
+  const rewritten = quads
+    .filter((q) => remap.has(q.subject.value))
+    .map((q) => mkQuad(remapTerm(q.subject) as ReturnType<typeof namedNode>, q.predicate, remapTerm(q.object) as Term));
+
+  const bySubject = new Map<string, Quad[]>();
+  for (const q of rewritten) {
+    const list = bySubject.get(q.subject.value) ?? [];
+    list.push(q);
+    bySubject.set(q.subject.value, list);
+  }
+
+  const sessionActivity = `${pod.baseUrl}${dir.replace(/\/$/, '')}`;
+  const promoted: string[] = [];
+  for (const [subjIri, subjQuads] of bySubject) {
+    const baseUrl = pod.baseUrl.replace(/\/$/, '');
+    const path = subjIri.replace(baseUrl, '') + '.ttl';
+    const existingTtl = await pod.getResource(path);
+    const existing = existingTtl ? new Parser({ baseIRI: pod.baseUrl + path }).parse(existingTtl) : [];
+    const prov = mkQuad(namedNode(subjIri), namedNode(`${PROV}wasGeneratedBy`), namedNode(sessionActivity));
+    await pod.putResource(path, await writeTurtle(dedupeQuads([...existing, ...subjQuads, prov])), { contentType: 'text/turtle' });
+    promoted.push(subjIri);
+  }
+  return { promoted };
 }

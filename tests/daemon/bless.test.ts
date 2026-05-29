@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest';
-import { gatherClaims } from '../../src/daemon/bless';
+import { gatherClaims, blessSession } from '../../src/daemon/bless';
 
 const BASE = 'http://localhost:3000';
 const SID = '260529-001';
@@ -22,6 +22,24 @@ function stubPod(files: Record<string, string>) {
     async getResource(p: string) { return files[p] ?? null; },
   };
 }
+
+describe('blessSession', () => {
+  it('promotes a session concept to a canonical /g/ resource with provenance', async () => {
+    const puts: { path: string; body: string }[] = [];
+    const pod = {
+      baseUrl: BASE,
+      async listContainer(p: string) { return p === dir ? [`${BASE}${dir}claim_01.ttl`] : []; },
+      async getResource(p: string) { return p === `${dir}claim_01.ttl` ? good : null; },
+      async putResource(path: string, body: string) { puts.push({ path, body }); },
+    };
+    await blessSession(pod as any, SID);
+    const put = puts.find((p) => p.path === '/g/GameTheory.ttl');
+    expect(put).toBeDefined();
+    expect(put!.body).toMatch(/localhost:3000\/g\/GameTheory>\s+a\s+<https:\/\/vocab\.aleph\.wiki\/Concept>/);
+    expect(put!.body).toMatch(/wasGeneratedBy/);
+    expect(put!.body).not.toMatch(/sessions\/260529-001\/g\/GameTheory/);
+  });
+});
 
 describe('gatherClaims', () => {
   it('collects quads from non-invalidated claim files only', async () => {
