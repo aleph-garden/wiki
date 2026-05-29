@@ -48,15 +48,23 @@ export function makeTools(deps: ToolDeps, ctx: RunContext) {
   async function read_pod(input: { path: string }) {
     try {
       const body = await pod.getResource(input.path);
-      if (body === null) return { error: '404' as const };
+      if (body === null) {
+        console.log(`[mcp] read_pod ${input.path} → 404`);
+        return { error: '404' as const };
+      }
+      console.log(`[mcp] read_pod ${input.path} → ${body.length} bytes`);
       return { body, contentType: 'text/turtle' };
     } catch (e) {
+      console.warn(`[mcp] read_pod ${input.path} → error: ${e instanceof Error ? e.message : String(e)}`);
       return { error: e instanceof Error ? e.message : String(e) };
     }
   }
 
   async function sparql_query(input: { query: string; sources?: string[] }) {
-    return sparql.run(input.query, input.sources);
+    const result = await sparql.run(input.query, input.sources);
+    if ('error' in result) console.warn(`[mcp] sparql_query → error: ${result.detail}`);
+    else console.log(`[mcp] sparql_query (${input.sources?.length ?? 'default'} src) → ${result.bindings.length} rows`);
+    return result;
   }
 
   async function write_message(input: { sessionId: string; msgN: number; body: string }) {
@@ -77,10 +85,14 @@ export function makeTools(deps: ToolDeps, ctx: RunContext) {
       });
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      if (msg.includes('412')) return { error: 'conflict' as const };
+      if (msg.includes('412')) {
+        console.warn(`[mcp] write_message ${built.path} → conflict (already exists)`);
+        return { error: 'conflict' as const };
+      }
       throw e;
     }
     ctx.messageWritten = true;
+    console.log(`[mcp] write_message → ${built.path}`);
     return { ok: true as const, path: built.path };
   }
 
@@ -109,6 +121,7 @@ export function makeTools(deps: ToolDeps, ctx: RunContext) {
       console.warn(`[mcp] SHACL advisory (not blocking) on ${built.path}: ${report.results.join('; ')}`);
     }
     await pod.putResource(built.path, built.podBody, { contentType: 'application/ld+json' });
+    console.log(`[mcp] assert_triples ${input.kind} → ${built.path}`);
     return { ok: true as const, path: built.path };
   }
 

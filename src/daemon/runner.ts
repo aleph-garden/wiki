@@ -5,6 +5,21 @@ import { createAlephServer } from './mcp/server';
 const TIMEOUT_MS = 5 * 60_000;
 const FALLBACK_BODY = 'Agent konnte keine Antwort generieren.';
 
+/** One-line summary of a tool_use block for logging. */
+function summarizeTool(name: string, input: any): string {
+  const short = name.replace(/^mcp__aleph__/, '');
+  if (!input) return short;
+  switch (short) {
+    case 'read_pod': return `read_pod ${input.path}`;
+    case 'sparql_query': return `sparql_query "${String(input.query ?? '').replace(/\s+/g, ' ').slice(0, 70)}…"`;
+    case 'write_message': return `write_message ${input.sessionId} msg${input.msgN} (${String(input.body ?? '').length} chars)`;
+    case 'assert_triples': return `assert_triples ${input.kind}`;
+    case 'WebSearch': return `WebSearch "${input.query ?? ''}"`;
+    case 'WebFetch': return `WebFetch ${input.url ?? ''}`;
+    default: return short;
+  }
+}
+
 /** Signature compatible with both the real SDK query() and the test MockSdk.
  *  The second arg (bound tools) is only consumed by the MockSdk. */
 type QueryFn = (
@@ -28,6 +43,10 @@ export async function runAgent(
   const ac = new AbortController();
   const timer = setTimeout(() => ac.abort(), TIMEOUT_MS);
 
+  const started = Date.now();
+  let toolCalls = 0;
+  console.log(`[runner] ▶ ${trigger.sessionId} msg${trigger.msgN}: starting agent`);
+
   try {
     const gen = queryFn(
       {
@@ -45,10 +64,16 @@ export async function runAgent(
     for await (const msg of gen) {
       if (msg.type === 'assistant') {
         for (const block of msg.message?.content ?? []) {
-          if (block.type === 'tool_use') console.log(`[runner] tool_use ${block.name}`);
+          if (block.type === 'tool_use') {
+            toolCalls++;
+            console.log(`[runner]   → ${summarizeTool(block.name, (block as any).input)}`);
+          } else if (block.type === 'text' && (block as any).text?.trim()) {
+            console.log(`[runner]   · ${(block as any).text.replace(/\s+/g, ' ').trim().slice(0, 140)}`);
+          }
         }
       } else if (msg.type === 'result') {
-        if (msg.subtype !== 'success') console.warn(`[runner] result subtype=${msg.subtype}`);
+        const log = msg.subtype === 'success' ? console.log : console.warn;
+        log(`[runner] result subtype=${msg.subtype}`);
       }
     }
   } catch (e) {
@@ -57,10 +82,13 @@ export async function runAgent(
     clearTimeout(timer);
   }
 
+  const secs = ((Date.now() - started) / 1000).toFixed(1);
   if (!ctx.messageWritten) {
-    console.warn(`[runner] no write_message for ${trigger.sessionId} → fallback`);
+    console.warn(`[runner] no write_message for ${trigger.sessionId} → fallback (${toolCalls} tool calls, ${secs}s)`);
     await tools.write_message({
       sessionId: trigger.sessionId, msgN: trigger.msgN, body: FALLBACK_BODY,
     });
+  } else {
+    console.log(`[runner] ■ ${trigger.sessionId}: done (${toolCalls} tool calls, ${secs}s)`);
   }
 }

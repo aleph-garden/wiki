@@ -18,11 +18,13 @@ export async function drainUnanswered(
   enqueueRun: (trigger: Trigger) => void,
 ): Promise<void> {
   const sessions = await pod.listContainer(SESSIONS_PATH);
+  let unanswered = 0;
   for (const sessionUrl of sessions) {
     const url = sessionUrl.startsWith('http') ? sessionUrl : `${pod.baseUrl}${SESSIONS_PATH}${sessionUrl}`;
     const trigger = await routeEvent(url, pod);
-    if (trigger) enqueueRun(trigger);
+    if (trigger) { unanswered++; enqueueRun(trigger); }
   }
+  console.log(`[daemon] drain: scanned ${sessions.length} session(s), ${unanswered} need a reply`);
 }
 
 export async function main(): Promise<void> {
