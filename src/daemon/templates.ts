@@ -94,7 +94,7 @@ export function buildReplyDoc(input: ReplyInput): BuiltDoc {
   ];
   return {
     validationDoc: { '@context': INLINE_CONTEXT, '@graph': graph },
-    path: `/aleph.wiki/sessions/${sessionId}/msg${next}.ttl`,
+    path: `/aleph/sessions/${sessionId}/msg${next}.ttl`,
   };
 }
 
@@ -151,7 +151,7 @@ export function buildClaimDoc(input: ClaimInput): BuiltDoc {
   });
   return {
     validationDoc: { '@context': INLINE_CONTEXT, '@graph': [header, ...graph] },
-    path: `/aleph.wiki/sessions/${sessionId}/claim_${ts}.ttl`,
+    path: `/aleph/sessions/${sessionId}/claim_${ts}.ttl`,
   };
 }
 

@@ -21,7 +21,7 @@ describe('buildReplyDoc', () => {
     const { validationDoc, path } = buildReplyDoc({
       sessionId: 'Session_1', msgN: 3, body: 'Solid is a spec.', now: '2026-05-28T10:00:00Z',
     });
-    expect(path).toBe('/aleph.wiki/sessions/Session_1/msg4.ttl');
+    expect(path).toBe('/aleph/sessions/Session_1/msg4.ttl');
     const chat = (validationDoc['@graph'] as any[]).find((n) => n['@type'] === 'ChatMessage');
     expect(chat.speaker).toBe('agent');
     expect(chat.position).toBe(4);
@@ -55,11 +55,11 @@ describe('buildClaimDoc', () => {
                    definition: { en: 'Study of strategic interaction.' } }],
       provenance: {},
     });
-    expect(built.path).toBe('/aleph.wiki/sessions/260529-001/claim_20260529T100000.ttl');
+    expect(built.path).toBe('/aleph/sessions/260529-001/claim_20260529T100000.ttl');
 
     const base = `http://localhost:3000${built.path}`;
     const qs = new Parser().parse(await toTurtle(built.validationDoc, base));
-    const conceptIri = 'http://localhost:3000/aleph.wiki/sessions/260529-001/g/GameTheory';
+    const conceptIri = 'http://localhost:3000/aleph/sessions/260529-001/g/GameTheory';
     const RDF_TYPE = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type';
     const V = 'https://vocab.aleph.wiki/';
     // concept got a session-scoped g/<slug> IRI, not an empty @id

@@ -34,7 +34,7 @@ export async function runAgent(
 ): Promise<void> {
   const ctx: RunContext = {
     sessionId: trigger.sessionId, msgN: trigger.msgN,
-    messageWritten: false, shaclFailures: new Map(),
+    messageWritten: false,
   };
   const { server, tools } = createAlephServer(
     { pod: deps.pod, validator: deps.validator, sparql: deps.sparql, enforceShacl: deps.config.shaclEnforce },

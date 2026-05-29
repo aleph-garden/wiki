@@ -48,8 +48,8 @@ describe('e2e: realistic tool sequence', () => {
     };
     await runAgent({ sessionId: 's_abc', msgN: 1 }, deps(pod), mockQuery as any);
 
-    expect(pod.store.has('/aleph.wiki/sessions/s_abc/msg2.ttl')).toBe(true);
-    const claimKey = [...pod.store.keys()].find((k) => k.startsWith('/aleph.wiki/sessions/s_abc/claim_'));
+    expect(pod.store.has('/aleph/sessions/s_abc/msg2.ttl')).toBe(true);
+    const claimKey = [...pod.store.keys()].find((k) => k.startsWith('/aleph/sessions/s_abc/claim_'));
     expect(claimKey).toBeDefined();
   });
 });

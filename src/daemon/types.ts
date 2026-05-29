@@ -38,6 +38,4 @@ export interface RunContext {
   msgN: number;
   /** Set true once write_message PUTs a reply successfully. */
   messageWritten: boolean;
-  /** Per-(sessionId,kind) failed-validation counters for retry cap. */
-  shaclFailures: Map<string, number>;
 }

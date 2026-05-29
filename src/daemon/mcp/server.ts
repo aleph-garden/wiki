@@ -18,7 +18,6 @@ export interface ToolDeps {
   enforceShacl?: boolean;
 }
 
-const MAX_SHACL_FAILURES = 3;
 
 function nowIso(): string { return new Date().toISOString(); }
 function fileTs(): string { return new Date().toISOString().replace(/[-:]/g, '').replace(/\..*/, ''); }

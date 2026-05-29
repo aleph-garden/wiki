@@ -8,7 +8,7 @@ let validator: ShaclValidator;
 beforeEach(async () => { validator = await ShaclValidator.load('vocab/aleph-shapes.ttl'); });
 
 function ctx(): RunContext {
-  return { sessionId: 's1', msgN: 3, messageWritten: false, shaclFailures: new Map() };
+  return { sessionId: 's1', msgN: 3, messageWritten: false };
 }
 
 /** Pod stub recording PUTs; getResource returns null. */
@@ -50,8 +50,8 @@ describe('write_message tool', () => {
     const c = ctx();
     const tools = makeTools({ pod: pod as any, validator, sparql: {} as any }, c);
     const res = await tools.write_message({ msgN: 3, body: 'hi' });
-    expect(res).toMatchObject({ ok: true, path: '/aleph.wiki/sessions/s1/msg4.ttl' });
-    expect(pod.puts[0].path).toBe('/aleph.wiki/sessions/s1/msg4.ttl');
+    expect(res).toMatchObject({ ok: true, path: '/aleph/sessions/s1/msg4.ttl' });
+    expect(pod.puts[0].path).toBe('/aleph/sessions/s1/msg4.ttl');
     // Body is now Turtle with full URIs (JSS can't serve JSON-LD as Turtle).
     expect(pod.puts[0].body).toMatch(/aleph\.wiki\/g\/s1_msg4/);
     expect(pod.puts[0].body).toMatch(/vocab\.aleph\.wiki\/ChatMessage/);
@@ -64,7 +64,7 @@ describe('write_message tool', () => {
     const tools = makeTools({ pod: pod as any, validator, sparql: {} as any }, c);
     // @ts-expect-error — sessionId is no longer part of the input type
     await tools.write_message({ sessionId: 'EVIL', msgN: 3, body: 'hi' });
-    expect(pod.puts[0].path).toBe('/aleph.wiki/sessions/s1/msg4.ttl');
+    expect(pod.puts[0].path).toBe('/aleph/sessions/s1/msg4.ttl');
   });
 });
 
@@ -78,7 +78,7 @@ describe('assert_claim tool (advisory SHACL — default)', () => {
       provenance: { derivedFrom: 'https://solidproject.org', searchQuery: 'solid' },
     });
     expect(res).toMatchObject({ ok: true });
-    expect(pod.puts[0].path).toMatch(/^\/aleph\.wiki\/sessions\/s1\/claim_/);
+    expect(pod.puts[0].path).toMatch(/^\/aleph\/sessions\/s1\/claim_/);
   });
 
   it('still writes when SHACL would not conform (validation is advisory)', async () => {
@@ -104,7 +104,7 @@ describe('assert_claim tool (advisory SHACL — default)', () => {
       provenance: {},
     });
     expect(res).toMatchObject({ ok: true });
-    expect(pod.puts[0].path).toMatch(/^\/aleph\.wiki\/sessions\/s1\/claim_/);
+    expect(pod.puts[0].path).toMatch(/^\/aleph\/sessions\/s1\/claim_/);
     expect(pod.puts[0].body).toMatch(/sessions\/s1\/g\/GameTheory/);
   });
 });
