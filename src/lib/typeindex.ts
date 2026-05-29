@@ -31,10 +31,6 @@ export async function resolveContainers(pod: PodLike, classIri: string): Promise
     .map((q) => q.subject.value);
   const containers = quads
     .filter((q) => regs.includes(q.subject.value) && q.predicate.value === `${SOLID}instanceContainer`)
-    .map((q) => {
-      const val = q.object.value;
-      // If it's a relative IRI (starts with /), extract the path
-      return val.startsWith(pod.baseUrl) ? val.substring(pod.baseUrl.length) : val;
-    });
+    .map((q) => toPath(pod.baseUrl, q.object.value));
   return containers.length > 0 ? containers : [DEFAULT_CONTAINER];
 }
