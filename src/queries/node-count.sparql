@@ -20,5 +20,5 @@
 SELECT (COUNT(DISTINCT ?s) AS ?n) WHERE {
   ?s a ?t .
   FILTER(?t IN (aleph:Concept, aleph:ImportantConcept, aleph:Person, aleph:Event, foaf:Person))
-  FILTER(STRSTARTS(STR(?s), "https://aleph.wiki/g/"))
+  FILTER(REGEX(STR(?s), "^https?://[^/]+/g/[^/]+$"))
 }

@@ -34,7 +34,7 @@ SELECT DISTINCT ?iri ?label ?kind ?importance ?generatedBy WHERE {
     FILTER(?t IN (aleph:Concept, aleph:ImportantConcept, aleph:Person,
                   aleph:Event, foaf:Person))
   })
-  FILTER(STRSTARTS(STR(?iri), "https://aleph.wiki/g/"))
+  FILTER(REGEX(STR(?iri), "^https?://[^/]+/g/[^/]+$"))
   OPTIONAL { ?iri skos:prefLabel ?prefLabel }
   OPTIONAL { ?iri rdfs:label ?rdfsLabel }
   BIND(COALESCE(?prefLabel, ?rdfsLabel) AS ?label)
