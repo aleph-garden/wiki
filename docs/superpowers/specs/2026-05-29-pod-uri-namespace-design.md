@@ -56,8 +56,10 @@ Strategie, Discovery, Slug/Dedup und den Canonicalization-Gate fest.
    zuerst existierende kanonische Concepts (TypeIndex-aufgelöst, irgendwo im
    Pod) und referenziert sie per IRI; neu vorschlagen nur, wenn nichts passt.
 9. **Provenance colocated.** Kein separater `/aleph/assertions/`-Baum.
-   Provenance-Records leben im Session-Container neben den Messages und zeigen
-   per IRI auf das `/g/`-Concept.
+   Provenance-Records leben im Session-Container neben den Messages. Sie zeigen
+   per IRI auf **kanonische Concepts (wo auch immer sie liegen — TypeIndex-
+   aufgelöst, nicht zwingend `/g/`)** und/oder auf **andere Triples derselben
+   Session** (z.B. eine Aussage leitet sich aus einer früheren ab).
 10. **Turtle, nicht JSON-LD.** Alle vom Daemon geschriebenen RDF-Ressourcen sind
     `.ttl` (JSS liefert gespeichertes JSON-LD nicht als Turtle aus).
 11. **Session-IDs `yymmdd-nnn`** (z.B. `260529-001`) → lexikografisch
@@ -90,7 +92,8 @@ Standard-Vokabular (`schema:`, `skos:`, `foaf:`, `prov:`) verwenden, eigene
         msg1.ttl                       #   Chat-Messages
         msg2.ttl
         draft.ttl                      #   vorgeschlagene (noch nicht kanonische) Triples
-        assertion_<ts>.ttl             #   schlanke Provenance → zeigt auf /g/-IRIs
+        assertion_<ts>.ttl             #   schlanke Provenance → zeigt auf kanonische
+                                       #   IRIs (wo auch immer) und/oder Session-Triples
   settings/
     publicTypeIndex.ttl                # rdf:type → Container-Registrierungen
 ```
@@ -164,6 +167,25 @@ Die Session ist der Branch, `/g/` der Main, Bless der Commit.
       vorigen Stand; optional `aleph:Snapshot` je Bless.
 3. **Der Agent schreibt nie direkt nach `/g/`** — nur Vorschläge in die Session.
 
+### Session-interne Struktur (Draft)
+
+- Der Agent materialisiert strukturierte Vorschläge **live** im Session-Draft
+  (kein reines Konversations-Modell) — du siehst den Graphen wachsen und kannst
+  Triples korrigieren.
+- **Session-lokale Hash-IRIs:** Draft-Entitäten/Claims sind relativ zum Session-
+  Dokument, z.B. `<#c1>`, `<#claim3>` → portabel (Entscheidung 2). Referenzen
+  *innerhalb* der Session sind damit triviale Hash-IRIs; Referenzen auf
+  **Bestehendes** zeigen auf dessen kanonische IRI (TypeIndex-aufgelöst, wo auch
+  immer).
+- **Provenance auf Knoten-/Claim-Ebene, kein RDF-Star/keine Reifizierung.** Ein
+  Claim ist ein referenzierbarer Knoten (`<#a1> a aleph:WebSearchAssertion ;
+  aleph:derivedFrom <url> ; prov:wasDerivedFrom <#c1>`), nicht ein einzelnes
+  reifiziertes Triple. Provenance kann auf andere Session-Knoten *und* auf
+  kanonische IRIs zeigen.
+- **Promotion beim Bless:** jede Draft-Entität → Slug-Lookup → kanonische IRI
+  (TypeIndex-Ziel, Default `/g/`); Daten promoten; Hash-IRI-Referenzen
+  umschreiben bzw. per `owl:sameAs` verknüpfen; Provenance mit-übernehmen.
+
 ## Agent-Verhalten (Zusammenfassung)
 
 - Liest überall im Pod (TypeIndex-aufgelöst), nicht nur `/g/`.
@@ -188,11 +210,8 @@ Keine Identitäts-Autorität. Produkt-/Service-Domain:
   Triples additiv mergen; wie mit widersprüchlichen Werten (z.B. zwei
   `prefLabel@en`) umgehen? Vorschlag: additiver Merge, Konflikt-Erkennung beim
   Bless, User entscheidet.
-- **Draft-Form (Empfehlung, im Review kippbar):** Option 1 — der Agent
-  materialisiert strukturierte Triple-Vorschläge live in `draft.ttl`, der User
-  sieht/editiert sie, Bless mintet den editierten Stand. (Alternative: reine
-  Konversation, Extraktion erst beim Bless — verworfen, weil „existierende
-  Triples referenzieren" zur Laufzeit strukturierte IRIs braucht.)
+- **Bless-Remapping:** Mechanik des Umschreibens von Hash-IRI-Referenzen auf
+  kanonische IRIs beim Promoten — direktes Rewrite vs. `owl:sameAs`-Brücke.
 - **TypeIndex-Wiring:** genaues Lesen/Schreiben/Bootstrappen im Loader (`rdf.ts`)
   und im Daemon-Writer.
 - **Slug-Normalisierung:** exakte Regel (Sprache des prefLabel, Unicode-Faltung,
