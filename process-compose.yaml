@@ -29,7 +29,11 @@ processes:
       - VITE_POD_BASE=http://localhost:3000
 
   agent-daemon:
-    command: bun run src/daemon/main.ts
+    # Node, not Bun: Comunica's HTTP actor needs undici.cacheStores, which
+    # Bun's built-in undici shim doesn't expose. tsx is the TS loader — it
+    # transforms TS (incl. parameter properties) and resolves the daemon's
+    # extensionless imports, which Node's strict ESM resolver rejects.
+    command: node --import tsx src/daemon/main.ts
     depends_on:
       seed:
         condition: process_completed_successfully

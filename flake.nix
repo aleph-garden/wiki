@@ -62,7 +62,7 @@
         devApp = pkgs.writeShellScriptBin "aleph-dev" ''
           set -e
           ${projectDirSnippet}
-          export PATH="${pkgs.lib.makeBinPath [ pkgs.bun jssRunner seedRunner ]}:$PATH"
+          export PATH="${pkgs.lib.makeBinPath [ pkgs.bun pkgs.nodejs_22 jssRunner seedRunner ]}:$PATH"
           # Default API port 8080 collides with common dev services — pin to 8085.
           PC_PORT="''${ALEPH_PC_PORT:-8085}"
           exec ${pkgs.process-compose}/bin/process-compose \

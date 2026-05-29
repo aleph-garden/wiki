@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
 import { PodClient } from '../lib/pod';
 import { loadConfig } from './config';
 import { ShaclValidator } from './shacl';
@@ -51,7 +52,14 @@ export async function main(): Promise<void> {
   }, { onStatus: (s) => console.log(`[daemon] ws ${s}`) });
 }
 
-if (import.meta.main) {
+// Entry guard. `import.meta.main` is Bun-only; the daemon runs under Node
+// (Comunica needs Node's undici). Compare the module URL to argv[1] so it
+// fires when invoked directly under either runtime, but not when imported.
+const invokedDirectly =
+  process.argv[1] !== undefined &&
+  import.meta.url === pathToFileURL(process.argv[1]).href;
+
+if (invokedDirectly) {
   main().catch((e) => {
     console.error('[daemon] fatal:', e);
     process.exit(1);
