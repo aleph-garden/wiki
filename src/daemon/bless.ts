@@ -43,7 +43,7 @@ function writeTurtle(quads: Quad[]): Promise<string> {
 function dedupeQuads(quads: Quad[]): Quad[] {
   const seen = new Set<string>();
   return quads.filter((q) => {
-    const k = `${q.subject.value}|${q.predicate.value}|${q.object.value}|${q.object.termType}`;
+    const k = `${q.subject.value}|${q.predicate.value}|${q.object.value}|${q.object.termType}|${(q.object as any).language ?? ''}|${(q.object as any).datatype?.value ?? ''}`;
     if (seen.has(k)) return false;
     seen.add(k);
     return true;
@@ -84,16 +84,15 @@ export async function blessSession(pod: PodLike, sessionId: string): Promise<{ p
 
   const bySubject = new Map<string, Quad[]>();
   for (const q of rewritten) {
-    const list = bySubject.get(q.subject.value) ?? [];
-    list.push(q);
-    bySubject.set(q.subject.value, list);
+    if (!bySubject.has(q.subject.value)) bySubject.set(q.subject.value, []);
+    bySubject.get(q.subject.value)!.push(q);
   }
 
   const sessionActivity = `${pod.baseUrl}${dir.replace(/\/$/, '')}`;
   const promoted: string[] = [];
   for (const [subjIri, subjQuads] of bySubject) {
     const baseUrl = pod.baseUrl.replace(/\/$/, '');
-    const path = subjIri.replace(baseUrl, '') + '.ttl';
+    const path = subjIri.slice(baseUrl.length) + '.ttl';
     const existingTtl = await pod.getResource(path);
     const existing = existingTtl ? new Parser({ baseIRI: pod.baseUrl + path }).parse(existingTtl) : [];
     const prov = mkQuad(namedNode(subjIri), namedNode(`${PROV}wasGeneratedBy`), namedNode(sessionActivity));

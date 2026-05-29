@@ -39,6 +39,56 @@ describe('blessSession', () => {
     expect(put!.body).toMatch(/wasGeneratedBy/);
     expect(put!.body).not.toMatch(/sessions\/260529-001\/g\/GameTheory/);
   });
+
+  it('remaps cross-entity object references to canonical IRIs', async () => {
+    const claim = `@prefix aleph: <https://vocab.aleph.wiki/> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+<${BASE}${dir}g/Child> a aleph:Concept ; skos:prefLabel "Child"@en ; skos:broader <${BASE}${dir}g/Parent> .
+<${BASE}${dir}g/Parent> a aleph:Concept ; skos:prefLabel "Parent"@en .`;
+    const puts: { path: string; body: string }[] = [];
+    const pod = {
+      baseUrl: BASE,
+      async listContainer(p: string) { return p === dir ? [`${BASE}${dir}claim_01.ttl`] : []; },
+      async getResource(p: string) { return p === `${dir}claim_01.ttl` ? claim : null; },
+      async putResource(path: string, body: string) { puts.push({ path, body }); },
+    };
+    await blessSession(pod as any, SID);
+    const child = puts.find((p) => p.path === '/g/Child.ttl');
+    expect(child).toBeDefined();
+    // broader points at the canonical Parent, not the session-scoped one
+    const { Parser } = await import('n3');
+    const qs = new Parser().parse(child!.body);
+    const SKOS_NS = 'http://www.w3.org/2004/02/skos/core#';
+    const broaderQuad = qs.find((q) => q.predicate.value === `${SKOS_NS}broader`);
+    expect(broaderQuad).toBeDefined();
+    expect(broaderQuad!.object.value).toBe(`${BASE}/g/Parent`);
+    expect(broaderQuad!.object.value).not.toMatch(/sessions\/260529-001\/g\/Parent/);
+  });
+
+  it('merges additively into an existing /g/ resource and preserves multilingual labels', async () => {
+    const existing = `@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+<${BASE}/g/GameTheory> skos:altLabel "GT"@en .`;
+    const puts: { path: string; body: string }[] = [];
+    const pod = {
+      baseUrl: BASE,
+      async listContainer(p: string) { return p === dir ? [`${BASE}${dir}claim_01.ttl`] : []; },
+      async getResource(p: string) {
+        if (p === `${dir}claim_01.ttl`) return good;          // prefLabel "Game Theory"@en
+        if (p === '/g/GameTheory.ttl') return existing;        // altLabel "GT"@en
+        return null;
+      },
+      async putResource(path: string, body: string) { puts.push({ path, body }); },
+    };
+    await blessSession(pod as any, SID);
+    const body = puts.find((p) => p.path === '/g/GameTheory.ttl')!.body;
+    const { Parser } = await import('n3');
+    const qs = new Parser().parse(body);
+    const SKOS_NS = 'http://www.w3.org/2004/02/skos/core#';
+    expect(qs.some((q) => q.predicate.value === `${SKOS_NS}altLabel` && q.object.value === 'GT')).toBe(true);
+    expect(qs.some((q) => q.predicate.value === `${SKOS_NS}prefLabel` && q.object.value === 'Game Theory')).toBe(true);
+    const wasGenBy = qs.filter((q) => q.predicate.value === 'http://www.w3.org/ns/prov#wasGeneratedBy');
+    expect(wasGenBy).toHaveLength(1);
+  });
 });
 
 describe('gatherClaims', () => {
