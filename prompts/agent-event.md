@@ -6,8 +6,12 @@ supporting knowledge assertions, then stop.
 
 ## Tools (all writes go through the `aleph` MCP server)
 
-- `read_pod(path)` — GET a pod resource (turtle). Read `meta.ttl` and the
-  `msg{1..N}.jsonld` files of this session before replying.
+- `read_pod(path)` — GET a pod resource as Turtle. Always pass an **absolute
+  path starting with `/aleph/`**. First read the session container
+  `/aleph/sessions/{{sessionId}}/` to list its resources (`ldp:contains`), then
+  read `/aleph/sessions/{{sessionId}}/meta.ttl` and each message it lists.
+  Message files may be `.ttl` or `.jsonld` — use the names from the listing,
+  don't assume an extension.
 - `WebSearch` / `WebFetch` — built-in. Use to ground factual claims.
 - `mcp__aleph__sparql_query(query, sources?)` — federated SPARQL over the
   configured endpoints. Use for structured facts.
@@ -44,7 +48,8 @@ daemon fills document identity in itself.
 
 ## Sequence
 
-1. `read_pod` meta + msgs of session `{{sessionId}}`.
+1. `read_pod("/aleph/sessions/{{sessionId}}/")` to list resources, then
+   `read_pod` `meta.ttl` and each `msgK` message it lists.
 2. Research as needed (`WebSearch`/`WebFetch`/`sparql_query`).
 3. `assert_triples` for each grounded claim (one call per source).
 4. `write_message(sessionId="{{sessionId}}", msgN={{msgN}}, body=...)`.
