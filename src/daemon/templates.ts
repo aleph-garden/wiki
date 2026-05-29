@@ -33,6 +33,7 @@ export const INLINE_CONTEXT: Record<string, unknown> = {
 };
 
 import jsonld from 'jsonld';
+import { slugify } from './slug';
 import { Parser, Writer } from 'n3';
 
 /**
@@ -121,6 +122,48 @@ const KIND_TYPE: Record<AssertionKind, string> = {
   sparql: 'SparqlAssertion',
   imagined: 'ImaginedAssertion',
 };
+
+export interface ClaimConcept {
+  '@type': 'Concept' | 'Person' | 'Event';
+  prefLabel: Record<string, string>;
+  [key: string]: unknown; // definition, broader, related, … (context-mapped)
+}
+
+export interface ClaimInput {
+  sessionId: string;
+  ts: string;
+  kind: AssertionKind;
+  now: string;
+  concepts: ClaimConcept[];
+  provenance: AssertionProvenance;
+}
+
+export function buildClaimDoc(input: ClaimInput): BuiltDoc {
+  const { sessionId, ts, kind, now, concepts, provenance } = input;
+  const header: Record<string, unknown> = {
+    '@id': '',
+    '@type': KIND_TYPE[kind],
+    wasGeneratedBy: `g:${sessionId}`,
+    generatedAtTime: now,
+  };
+  if (kind === 'web') {
+    if (provenance.derivedFrom) header.derivedFrom = provenance.derivedFrom;
+    if (provenance.searchQuery) header.searchQuery = provenance.searchQuery;
+  } else if (kind === 'sparql') {
+    if (provenance.query) header.query = provenance.query;
+    if (provenance.endpoints) header.endpoints = provenance.endpoints;
+  }
+  // Mint a session-scoped relative IRI per concept from its prefLabel.
+  const graph = concepts.map((c) => {
+    const label = c.prefLabel?.en ?? Object.values(c.prefLabel ?? {})[0] ?? '';
+    const slug = slugify(label);
+    return { ...c, '@id': `g/${slug}`, wasGeneratedBy: `g:${sessionId}`, generatedAtTime: now };
+  });
+  return {
+    validationDoc: { '@context': INLINE_CONTEXT, '@graph': [header, ...graph] },
+    path: `/aleph.wiki/sessions/${sessionId}/claim_${ts}.ttl`,
+  };
+}
 
 export function buildAssertionDoc(input: AssertionInput): BuiltDoc {
   const { sessionId, msgN, kind, now, ts, jsonld, provenance } = input;

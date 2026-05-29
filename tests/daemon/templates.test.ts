@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest';
 import { Parser } from 'n3';
-import { buildReplyDoc, buildAssertionDoc, toTurtle, INLINE_CONTEXT } from '../../src/daemon/templates';
+import { buildReplyDoc, buildAssertionDoc, buildClaimDoc, toTurtle, INLINE_CONTEXT } from '../../src/daemon/templates';
 
 const V = 'https://vocab.aleph.wiki/';
 const RDF_TYPE = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type';
@@ -82,5 +82,28 @@ describe('buildAssertionDoc', () => {
     const act = (validationDoc['@graph'] as any[]).find((n) => n['@type'] === 'ImaginedAssertion');
     expect(act.wasGeneratedBy).toBe('g:Session_1_turn3');
     expect(act.derivedFrom).toBeUndefined();
+  });
+});
+
+describe('buildClaimDoc', () => {
+  it('targets the session container as .ttl and mints concept @id from prefLabel', async () => {
+    const built = buildClaimDoc({
+      sessionId: '260529-001', ts: '20260529T100000', kind: 'imagined',
+      now: '2026-05-29T10:00:00Z',
+      concepts: [{ '@type': 'Concept', prefLabel: { en: 'Game Theory' },
+                   definition: { en: 'Study of strategic interaction.' } }],
+      provenance: {},
+    });
+    expect(built.path).toBe('/aleph.wiki/sessions/260529-001/claim_20260529T100000.ttl');
+
+    const base = `http://localhost:3000${built.path}`;
+    const qs = new Parser().parse(await toTurtle(built.validationDoc, base));
+    const conceptIri = 'http://localhost:3000/aleph.wiki/sessions/260529-001/g/GameTheory';
+    const RDF_TYPE = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type';
+    const V = 'https://vocab.aleph.wiki/';
+    // concept got a session-scoped g/<slug> IRI, not an empty @id
+    expect(qs.some((q) => q.subject.value === conceptIri && q.predicate.value === RDF_TYPE && q.object.value === `${V}Concept`)).toBe(true);
+    // the claim/provenance node is the document itself (@id "")
+    expect(qs.some((q) => q.subject.value === base && q.predicate.value === RDF_TYPE && q.object.value === `${V}ImaginedAssertion`)).toBe(true);
   });
 });
