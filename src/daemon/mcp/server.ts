@@ -62,7 +62,7 @@ export function makeTools(deps: ToolDeps, ctx: RunContext) {
 
   async function sparql_query(input: { query: string; sources?: string[] }) {
     const result = await sparql.run(input.query, input.sources);
-    if ('error' in result) console.warn(`[mcp] sparql_query → error: ${result.detail}`);
+    if ('error' in result) console.warn(`[mcp] sparql_query → error: ${result.detail} | query: ${input.query.replace(/\s+/g, ' ').trim().slice(0, 200)}`);
     else console.log(`[mcp] sparql_query (${input.sources?.length ?? 'default'} src) → ${result.bindings.length} rows`);
     return result;
   }

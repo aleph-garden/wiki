@@ -31,9 +31,17 @@ be persisted via `assert_triples` with the matching `kind` BEFORE you reference
 it in the reply. Do not emit free-hand triples without an assertion wrapper.
 If a claim is your own synthesis, use `kind: "imagined"`.
 
-Each `Concept` you assert MUST carry `wasGeneratedBy: "g:{{sessionId}}"` and a
-`generatedAtTime` (ISO-8601). Leave every `@id` you don't control empty — the
-daemon fills document identity in itself.
+Each `Concept` you assert MUST have its own stable `@id` — a `g:`-prefixed
+CamelCase slug, e.g. `"@id": "g:GoedelIncompletenessTheorems"` — so it becomes
+an addressable node in the graph. When you reference a concept that already
+exists in the pod, reuse its exact IRI. Never leave a Concept's `@id` empty.
+Each `Concept` MUST also carry `wasGeneratedBy: "g:{{sessionId}}"` and a
+`generatedAtTime` (ISO-8601).
+
+Leave **only the assertion header** `@id` empty (`""`) — the daemon fills the
+document identity there. The header `@id` and a Concept `@id` are different
+things: an empty `@id` collapses the node onto the document URL, which is not
+under `g:` and therefore never renders as a graph node.
 
 ## Reply style
 
